@@ -58,8 +58,15 @@ export function createTouchControls(actions: {
       if (action === 'sprint') {
         state.sprint = !state.sprint;
         button.classList.toggle('selected', state.sprint);
-      } else if (action && action in actions) {
-        actions[action as keyof typeof actions]();
+      } else {
+        switch (action) {
+          case 'attack': actions.attack(); break;
+          case 'inventory': actions.inventory(); break;
+          case 'build': actions.build(); break;
+          case 'place': actions.place(); break;
+          case 'axe': actions.axe(); break;
+          case 'pickaxe': actions.pickaxe(); break;
+        }
       }
     });
   });
