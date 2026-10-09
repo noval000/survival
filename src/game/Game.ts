@@ -1,3 +1,4 @@
+import { Footsteps } from '../graphics/Footsteps';
 import { SurvivalVitals } from './SurvivalVitals';
 import { terrainHeight, terrainSlope } from '../world/Terrain';
 import * as THREE from 'three';
@@ -35,6 +36,7 @@ const exploration=new ExplorationHUD(document.querySelector<HTMLElement>('#hud')
 let quality:Quality=defaultQuality();
 applyQuality(renderer,sun,quality);
 const survivor=new Survivor();
+const footsteps=new Footsteps(scene);
 const player=survivor.root;
 scene.add(player);
 player.position.set(0,0,8);
@@ -112,7 +114,8 @@ const nextZ=player.position.z+direction.z*dt*(keys.has('ShiftLeft')||touch.sprin
 const nextHeight=terrainHeight(nextX,nextZ);
 const climb=nextHeight-terrainHeight(player.position.x,player.position.z);
 if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7){player.position.x=nextX;player.position.z=nextZ;}
-}animateCharacter(dt,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
+}animateCharacter(dt,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());
+footsteps.update(dt,player.position,yaw,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint(),grounded);if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
 verticalVelocity-=18*dt;
 player.position.y+=verticalVelocity*dt;
 const groundY=terrainHeight(player.position.x,player.position.z);
