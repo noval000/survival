@@ -54,7 +54,7 @@ export class Footsteps {
         .15 * Math.max(0, 1 - print.age / print.duration);
       if (print.age >= print.duration) {
         this.scene.remove(print.mesh);
-        print.mesh.material.dispose();
+        (print.mesh.material as THREE.Material).dispose();
         this.prints.splice(i, 1);
       }
     }
@@ -68,7 +68,7 @@ export class Footsteps {
         .2 * Math.max(0, 1 - particle.age / .65);
       if (particle.age >= .65) {
         this.scene.remove(particle.mesh);
-        particle.mesh.material.dispose();
+        (particle.mesh.material as THREE.Material).dispose();
         this.dust.splice(i, 1);
       }
     }
@@ -92,7 +92,7 @@ export class Footsteps {
     if (this.prints.length > 65) {
       const oldest = this.prints.shift()!;
       this.scene.remove(oldest.mesh);
-      oldest.mesh.material.dispose();
+      (oldest.mesh.material as THREE.Material).dispose();
     }
     if (running) {
       for (let i = 0; i < 2; i++) {
