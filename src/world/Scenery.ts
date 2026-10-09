@@ -112,20 +112,26 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
 
   // Close-range hero assets: detailed branching silhouettes, fallen logs and stumps.
   // Keep counts bounded to protect mobile GPU budgets.
-  for (let i = 0; i < 48; i++) {
+  const heroTrees: THREE.Group[] = [];
+  for (let i = 0; i < 16; i++) {
     const a = random() * Math.PI * 2;
     const r = 18 + Math.sqrt(random()) * 69;
     const hero = makeDetailedTree(random, i % 5 === 0 ? 'oak' : i % 2 ? 'spruce' : 'pine');
     hero.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r), Math.sin(a) * r);
+    hero.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = false; });
+    heroTrees.push(hero);
     root.add(hero);
   }
-  for (let i = 0; i < 85; i++) {
+  const landmarks: THREE.Group[] = [];
+  for (let i = 0; i < 38; i++) {
     const a = random() * Math.PI * 2;
     const r = 15 + Math.sqrt(random()) * 75;
     const detail = i % 3 === 0 ? makeDetailedRock(random, .65 + random()) :
       i % 3 === 1 ? makeFallenLog(random) : makeStump(random);
-    detail.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    detail.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r), Math.sin(a) * r);
     detail.rotation.y = random() * Math.PI * 2;
+    detail.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = false; });
+    landmarks.push(detail);
     root.add(detail);
   }
 
@@ -167,8 +173,16 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
   if (litter.instanceColor) litter.instanceColor.needsUpdate = true;
   root.add(litter);
 
+  let visibilityTimer = 0;
   return {
-    update(time: number) {
+    update(time: number, cameraPosition?: THREE.Vector3, dt = .016) {
+      visibilityTimer += dt;
+      if (cameraPosition && visibilityTimer > .35) {
+        visibilityTimer = 0;
+        for (const object of heroTrees) object.visible = object.position.distanceToSquared(cameraPosition) < 58 * 58;
+        for (const object of landmarks) object.visible = object.position.distanceToSquared(cameraPosition) < 48 * 48;
+        distant.visible = Math.hypot(cameraPosition.x, cameraPosition.z) > 50;
+      }
       foam.children.forEach((child, index) => {
         const mesh = child as THREE.Mesh;
         const material = mesh.material as THREE.MeshBasicMaterial;
