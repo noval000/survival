@@ -48,7 +48,18 @@ export function createAtmosphere(scene: THREE.Scene, random: () => number) {
     }
     clouds.add(cloud);
   }
+  const skyMaterial = sky.material as THREE.ShaderMaterial;
+  const dayZenith = new THREE.Color(0x528caf);
+  const nightZenith = new THREE.Color(0x101c38);
+  const dayHorizon = new THREE.Color(0xb9d7d1);
+  const nightHorizon = new THREE.Color(0x28364c);
   return {
+    setDaylight(daylight: number, storm: number) {
+      const factor = Math.max(.03, daylight * (1 - storm * .5));
+      skyMaterial.uniforms.zenith.value.copy(nightZenith).lerp(dayZenith, factor);
+      skyMaterial.uniforms.horizon.value.copy(nightHorizon).lerp(dayHorizon, factor);
+      cloudMaterial.opacity = (.12 + daylight * .38) * (1 - storm * .45);
+    },
     update(dt: number, playerPosition: THREE.Vector3) {
       sky.position.copy(playerPosition);
       clouds.rotation.y += dt * .0006;
