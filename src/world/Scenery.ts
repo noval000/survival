@@ -1,3 +1,4 @@
+import { terrainHeight } from './Terrain';
 import { makeDetailedTree, makeDetailedRock, makeFallenLog, makeStump } from './DetailedAssets';
 import * as THREE from 'three';
 
@@ -46,7 +47,7 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
     const radius = 20 + Math.sqrt(random()) * 71;
     const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
     const group = new THREE.Group();
-    group.position.set(x, 0, z);
+    group.position.set(x, terrainHeight(x, z), z);
     const count = 2 + Math.floor(random() * 4);
     for (let j = 0; j < count; j++) {
       const boulder = add(group, cliffGeo,
@@ -67,7 +68,7 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < bushCount; i++) {
     const a = random() * Math.PI * 2;
     const r = 13 + Math.sqrt(random()) * 78;
-    dummy.position.set(Math.cos(a) * r, .34, Math.sin(a) * r);
+    dummy.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r) + .34, Math.sin(a) * r);
     dummy.scale.set(.4 + random() * 1.1, .5 + random() * .8, .4 + random() * 1.1);
     dummy.rotation.set(0, random() * Math.PI, 0);
     dummy.updateMatrix();
@@ -92,12 +93,12 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
     const r = 27 + Math.sqrt(random()) * 60;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const size = .65 + random() * .85;
-    dummy.position.set(x, 1.75 * size, z);
+    dummy.position.set(x, terrainHeight(x, z) + 1.75 * size, z);
     dummy.scale.set(size, size, size);
     dummy.rotation.set(0, random() * Math.PI, 0);
     dummy.updateMatrix();
     trunks.setMatrixAt(i, dummy.matrix);
-    dummy.position.y = 4.2 * size;
+    dummy.position.y = terrainHeight(x, z) + 4.2 * size;
     dummy.updateMatrix();
     crowns.setMatrixAt(i, dummy.matrix);
     crowns.setColorAt(i, crownColors[Math.floor(random() * crownColors.length)]);
@@ -115,7 +116,7 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
     const a = random() * Math.PI * 2;
     const r = 18 + Math.sqrt(random()) * 69;
     const hero = makeDetailedTree(random, i % 5 === 0 ? 'oak' : i % 2 ? 'spruce' : 'pine');
-    hero.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    hero.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r), Math.sin(a) * r);
     root.add(hero);
   }
   for (let i = 0; i < 85; i++) {
@@ -155,7 +156,7 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < 3200; i++) {
     const a = random() * Math.PI * 2;
     const r = Math.sqrt(random()) * 88;
-    dummy.position.set(Math.cos(a) * r, .08, Math.sin(a) * r);
+    dummy.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r) + .08, Math.sin(a) * r);
     dummy.rotation.set(-Math.PI / 2, 0, random() * 6.28);
     dummy.scale.setScalar(.4 + random() * 1.4);
     dummy.updateMatrix();
