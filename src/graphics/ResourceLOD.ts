@@ -16,7 +16,6 @@ export class ResourceLOD {
   private readonly entries: {
     node: Harvestable;
     proxy: THREE.Group;
-    detailed: THREE.Object3D[];
     isNear: boolean;
   }[] = [];
   private elapsed = 0;
@@ -35,10 +34,11 @@ export class ResourceLOD {
       boulder.scale.set(1.3, .9, 1.1);
       proxy.add(boulder);
     }
+    proxy.name = 'resource-lod-proxy';
     proxy.visible = false;
     node.mesh.add(proxy);
     this.entries.push({
-      node, proxy, detailed: node.mesh.children.filter(child => child !== proxy),
+      node, proxy,
       isNear: true,
     });
   }
@@ -59,7 +59,7 @@ export class ResourceLOD {
       if (near === entry.isNear) continue;
       entry.isNear = near;
       entry.proxy.visible = !near;
-      for (const child of entry.detailed) child.visible = near;
+      for (const child of entry.node.mesh.children) if (child !== entry.proxy) child.visible = near;
     }
   }
 }
