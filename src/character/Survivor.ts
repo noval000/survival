@@ -1,11 +1,12 @@
+import { surfaceMaterial } from '../graphics/ProceduralPBR';
 import * as THREE from 'three';
 import { createTool } from '../items/Tools';
 
 const mat = (color: number, roughness = .85) =>
   new THREE.MeshStandardMaterial({ color, roughness });
-const skin = mat(0xb98969), jacket = mat(0x455c4a),
+const skin = mat(0xb98969), jacket = surfaceMaterial('fabric'),
   trim = mat(0x283b32), pants = mat(0x353d3b),
-  leather = mat(0x65503c), hair = mat(0x302820),
+  leather = surfaceMaterial('leather'), hair = mat(0x302820),
   metal = mat(0x91999a, .4);
 
 function mesh(parent: THREE.Object3D, geo: THREE.BufferGeometry, material: THREE.Material,

@@ -1,9 +1,11 @@
+import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
+import { Footsteps } from '../graphics/Footsteps';
+import { SurvivalVitals } from './SurvivalVitals';
 import { terrainHeight, terrainSlope } from '../world/Terrain';
 import * as THREE from 'three';
 import { createEnvironment } from '../world/Environment';
 import { placement, createGhost } from '../building/Placement';
 import { Survivor } from '../character/Survivor';
-import { animateWater } from '../world/Atmosphere';
 import { WorldClock } from '../world/WorldClock';
 import { Weather } from '../world/Weather';
 import { Wildlife } from '../world/Wildlife';
@@ -21,6 +23,7 @@ const app=document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML=`<div id="hud"><div class="top"><div class="brand">ISLAND <span>//</span> SURVIVAL</div><div class="pill">ALPHA 0.3 · ОДИНОЧНЫЙ МИР</div></div><div class="help"><b>W A S D</b> — движение<br><b>Мышь</b> — осмотр<br><b>ЛКМ</b> — добывать ресурс<br><b>1</b> — топор · <b>2</b> — кирка<br><b>I</b> — инвентарь · <b>B</b> — стройка<br><b>E</b> — построить · <b>ESC</b> — курсор</div><div class="crosshair">+</div><div id="prompt" class="prompt">Найдите дерево или камень</div><div id="toast" class="toast"></div><div class="stats"><div class="stat"><small>ЗДОРОВЬЕ <span id="healthNum">100</span></small><div class="track"><div class="fill" style="width:100%"></div></div></div><div class="stat"><small>ВОДА <span id="waterNum">100</span></small><div class="track"><div id="waterBar" class="fill" style="width:100%"></div></div></div><div class="stat"><small>ЕДА <span id="foodNum">100</span></small><div class="track"><div id="foodBar" class="fill" style="width:100%"></div></div></div></div><div class="right"><div id="tool1" class="slot active">🪓<small>1 · ТОПОР</small></div><div id="tool2" class="slot">⛏️<small>2 · КИРКА</small></div><div id="buildSlot" class="slot">🏠<small>B · СТРОИТЬ</small></div></div><div id="panel" class="panel hidden"></div></div><div id="start"><div class="intro"><div class="brand">SURVIVAL SANDBOX · PROTOTYPE</div><h1>ISLAND</h1><p>Исследуйте остров. Рубите деревья, добывайте камень, стройте собственную базу. Ваш прогресс сохраняется в браузере.</p><button id="play" class="btn">НАЧАТЬ ВЫЖИВАНИЕ →</button><p style="font-size:12px">Для управления нужен компьютер с клавиатурой и мышью.</p></div></div>`;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91c4d3);scene.fog=new THREE.FogExp2(0x91c4d3,.007);
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,700);
+const cameraRig=new ThirdPersonCamera(camera);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;app.prepend(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xe0f5ff,0x6e7958,2.2));const sun=new THREE.DirectionalLight(0xffe3af,2.5);sun.position.set(80,110,40);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-120;sun.shadow.camera.right=120;sun.shadow.camera.top=120;sun.shadow.camera.bottom=-120;scene.add(sun);
 const mat=(c:number)=>new THREE.MeshStandardMaterial({color:c,roughness:.9});const grass=mat(0x668d54),sand=mat(0xd1bd86),wood=mat(0x73543a),leaf=mat(0x356d3e),rockmat=mat(0x828985),building=mat(0x977655);
@@ -34,6 +37,7 @@ const exploration=new ExplorationHUD(document.querySelector<HTMLElement>('#hud')
 let quality:Quality=defaultQuality();
 applyQuality(renderer,sun,quality);
 const survivor=new Survivor();
+const footsteps=new Footsteps(scene);
 const player=survivor.root;
 scene.add(player);
 player.position.set(0,0,8);
@@ -64,7 +68,7 @@ panel.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach(b=>b.addEventLi
 }else{panel.innerHTML=`<h3>СТРОИТЕЛЬСТВО</h3><div class="resource">🪵 Дерево <strong>${resources.wood}</strong></div><div class="resource">🪨 Камень <strong>${resources.stone}</strong></div><p>Выберите конструкцию и нажмите E после закрытия меню.</p><button id="foundationBtn" class="btn ${buildType==='foundation'?'':'secondary'}">Фундамент · 10 дерева</button><button id="wallBtn" class="btn ${buildType==='wall'?'':'secondary'}">Стена · 6 дерева, 2 камня</button><button id="closeBtn" class="btn secondary">ЗАКРЫТЬ</button>`;panel.querySelector('#foundationBtn')?.addEventListener('click',()=>{buildType='foundation';renderPanel()});panel.querySelector('#wallBtn')?.addEventListener('click',()=>{buildType='wall';renderPanel()})}
 panel.querySelector('#closeBtn')?.addEventListener('click',()=>{openPanel='';renderPanel()})}
 function updateSlots(){document.querySelector('#tool1')?.classList.toggle('active',!buildMode&&tool===1);document.querySelector('#tool2')?.classList.toggle('active',!buildMode&&tool===2);document.querySelector('#buildSlot')?.classList.toggle('active',buildMode)}
-let yaw=0,pitch=.25,locked=false,started=false;const keys=new Set<string>();const temp=new THREE.Vector3();
+let yaw=0,pitch=.25,locked=false,started=false;const keys=new Set<string>();
 function target(){let best:Node|null=null,dist=4.5;for(const n of nodes){const d=player.position.distanceTo(n.mesh.position);if(d<dist){best=n;dist=d}}return best}
 function hit(){if(!buildMode&&swingTime>0)return;if(!buildMode){if(!survivor.attack())return;swingTime=.48;}if(buildMode){place();return}const n=target();if(!n){toast('Подойдите ближе к дереву или камню');return}if((n.kind==='tree'&&tool!==1)||(n.kind==='rock'&&tool!==2)){toast(n.kind==='tree'?'Нужен топор (1)':'Нужна кирка (2)');return}n.hp--;
 harvestEffects.impact(n);
@@ -88,7 +92,16 @@ const touch=createTouchControls({
 document.addEventListener('keydown',e=>{if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='Digit1'){tool=1;buildMode=false;updateSlots()}if(e.code==='Digit2'){tool=2;buildMode=false;updateSlots()}if(e.code==='KeyI'||e.code==='KeyB'){const next=e.code==='KeyI'?'inventory':'build';openPanel=openPanel===next?'':next;if(e.code==='KeyB')buildMode=true;updateSlots();renderPanel();if(openPanel&&document.pointerLockElement)document.exitPointerLock()}if(e.code==='KeyE'&&buildMode&&!openPanel)place()});document.addEventListener('keyup',e=>keys.delete(e.code));
 let verticalVelocity=0;
 let grounded=true;
-let hunger=100,water=100,health=100;const clock=new THREE.Clock();let elapsed=0;function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);harvestEffects.update(dt);
+const vitals=new SurvivalVitals();
+const stats=document.querySelector<HTMLElement>('.stats')!;
+const staminaStat=document.createElement('div');
+staminaStat.className='stat';
+staminaStat.innerHTML='<small>ВЫНОСЛИВОСТЬ <span id="staminaNum">100</span></small><div class="track"><div id="staminaBar" class="fill" style="width:100%"></div></div>';
+stats.append(staminaStat);
+const tempStat=document.createElement('div');
+tempStat.className='stat';
+tempStat.innerHTML='<small>ТЕМПЕРАТУРА <span id="tempNum">36.8°C</span></small><div class="track"><div id="tempBar" class="fill" style="width:50%"></div></div>';
+stats.append(tempStat);const clock=new THREE.Clock();let elapsed=0;function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);harvestEffects.update(dt);
 const storm=weather.update(dt,player.position);
 const timeState=worldClock.update(dt,storm);
 environment.atmosphere.setDaylight(timeState.daylight,storm);
@@ -97,15 +110,32 @@ wildlife.update(dt,player.position);
 scenery.update(elapsed);
 if((locked||touchDevice&&started)&&!openPanel){const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));const move=new THREE.Vector3();if(keys.has('KeyW'))move.add(forward);if(keys.has('KeyS'))move.sub(forward);if(keys.has('KeyD'))move.add(right);if(keys.has('KeyA'))move.sub(right);if(touchDevice){move.addScaledVector(forward,touch.y);move.addScaledVector(right,touch.x)}const moving=move.lengthSq()>0;if(moving){
 const direction=move.normalize();
-const nextX=player.position.x+direction.x*dt*(keys.has('ShiftLeft')||touch.sprint?10:6);
-const nextZ=player.position.z+direction.z*dt*(keys.has('ShiftLeft')||touch.sprint?10:6);
+const nextX=player.position.x+direction.x*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
+const nextZ=player.position.z+direction.z*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
 const nextHeight=terrainHeight(nextX,nextZ);
 const climb=nextHeight-terrainHeight(player.position.x,player.position.z);
 if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7){player.position.x=nextX;player.position.z=nextZ;}
-}animateCharacter(dt,moving,keys.has('ShiftLeft')||touch.sprint);if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
+}animateCharacter(dt,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());
+footsteps.update(dt,player.position,yaw,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint(),grounded);if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
 verticalVelocity-=18*dt;
 player.position.y+=verticalVelocity*dt;
 const groundY=terrainHeight(player.position.x,player.position.z);
 if(player.position.y<=groundY){player.position.y=groundY;verticalVelocity=0;grounded=true;}
-player.position.x=THREE.MathUtils.clamp(player.position.x,-98,98);player.position.z=THREE.MathUtils.clamp(player.position.z,-98,98);player.rotation.y=yaw;elapsed+=dt;hunger=Math.max(0,hunger-dt*.025);water=Math.max(0,water-dt*.045);if(hunger===0||water===0)health=Math.max(0,health-dt*.15);document.querySelector('#foodNum')!.textContent=String(Math.ceil(hunger));document.querySelector('#waterNum')!.textContent=String(Math.ceil(water));document.querySelector('#healthNum')!.textContent=String(Math.ceil(health));document.querySelector<HTMLElement>('#foodBar')!.style.width=hunger+'%';document.querySelector<HTMLElement>('#waterBar')!.style.width=water+'%';const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);animateWater(environment.water,elapsed);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}camera.position.copy(player.position).add(new THREE.Vector3(Math.sin(yaw)*6,4+pitch*5,Math.cos(yaw)*6));temp.copy(player.position).add(new THREE.Vector3(0,1.6,0));camera.lookAt(temp);environment.atmosphere.update(dt,player.position);renderer.render(scene,camera)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+player.position.x=THREE.MathUtils.clamp(player.position.x,-98,98);player.position.z=THREE.MathUtils.clamp(player.position.z,-98,98);player.rotation.y=yaw;elapsed+=dt;const r=Math.hypot(player.position.x,player.position.z);
+const swimming=r>101&&player.position.y<.5;
+const v=vitals.update(dt,{
+  moving:keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,
+  sprinting:(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint(),
+  swimming,storm,daylight:timeState.daylight,
+});
+document.querySelector('#foodNum')!.textContent=String(Math.ceil(v.hunger));
+document.querySelector('#waterNum')!.textContent=String(Math.ceil(v.hydration));
+document.querySelector('#healthNum')!.textContent=String(Math.ceil(v.health));
+document.querySelector('#staminaNum')!.textContent=String(Math.ceil(v.stamina));
+document.querySelector('#tempNum')!.textContent=v.temperature.toFixed(1)+'°C';
+document.querySelector<HTMLElement>('#foodBar')!.style.width=v.hunger+'%';
+document.querySelector<HTMLElement>('#waterBar')!.style.width=v.hydration+'%';
+document.querySelector<HTMLElement>('#staminaBar')!.style.width=v.stamina+'%';
+document.querySelector<HTMLElement>('#tempBar')!.style.width=THREE.MathUtils.clamp((v.temperature-32)*12,0,100)+'%';
+const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 const qualityButton=document.createElement('button');qualityButton.id='quality-button';qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase();document.querySelector('#hud')?.append(qualityButton);qualityButton.addEventListener('click',()=>{quality=quality==='high'?'medium':quality==='medium'?'low':'high';applyQuality(renderer,sun,quality);qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase()});

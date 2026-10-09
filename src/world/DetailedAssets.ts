@@ -1,6 +1,7 @@
+import { surfaceMaterial } from '../graphics/ProceduralPBR';
 import * as THREE from 'three';
 
-const bark = new THREE.MeshStandardMaterial({ color: 0x554334, roughness: .98 });
+const bark = surfaceMaterial('bark');
 const barkDark = new THREE.MeshStandardMaterial({ color: 0x342b23, roughness: 1 });
 const cut = new THREE.MeshStandardMaterial({ color: 0xc9a879, roughness: 1 });
 const foliage = [
@@ -10,8 +11,8 @@ const foliage = [
   new THREE.MeshStandardMaterial({ color: 0x567847, roughness: .96, side: THREE.DoubleSide }),
 ];
 const granite = [
-  new THREE.MeshStandardMaterial({ color: 0x818987, roughness: .96, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x999c92, roughness: .98, flatShading: true }),
+  surfaceMaterial('stone'),
+  surfaceMaterial('stone'),
   new THREE.MeshStandardMaterial({ color: 0x676f6c, roughness: .98, flatShading: true }),
 ];
 const moss = new THREE.MeshStandardMaterial({ color: 0x536d42, roughness: 1 });

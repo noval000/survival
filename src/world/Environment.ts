@@ -1,3 +1,4 @@
+import { OceanSurface } from '../graphics/OceanSurface';
 import { createTerrain, terrainHeight } from './Terrain';
 import * as THREE from 'three';
 import { createSurfaceTextures } from './SurfaceTextures';
@@ -14,10 +15,8 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   const textures = createSurfaceTextures();
   const sand = new THREE.MeshStandardMaterial({ map: textures.sand, roughness: 1 });
   const grass = new THREE.MeshStandardMaterial({ map: textures.grass, roughness: 1 });
-  const waterMaterial = new THREE.MeshStandardMaterial({
-    color: 0x287f94, roughness: 0.27, metalness: 0.08,
-    transparent: true, opacity: 0.87, depthWrite: false,
-  });
+  const oceanSurface = new OceanSurface();
+  const waterMaterial = oceanSurface.material;
 
   createTerrain(scene, sand, grass);
 
@@ -125,5 +124,5 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   terrain.add(driftwood);
 
   const atmosphere = createAtmosphere(scene, random);
-  return { water: sea, waterMaterial, atmosphere };
+  return { water: sea, waterMaterial, oceanSurface, atmosphere };
 }

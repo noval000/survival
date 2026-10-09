@@ -1,10 +1,9 @@
+import { surfaceMaterial } from '../graphics/ProceduralPBR';
 import * as THREE from 'three';
 
-const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x795238, roughness: .92 });
-const gripMaterial = new THREE.MeshStandardMaterial({ color: 0x332c26, roughness: .95 });
-const steelMaterial = new THREE.MeshStandardMaterial({
-  color: 0x8e9ca5, metalness: .75, roughness: .27,
-});
+const handleMaterial = surfaceMaterial('wood');
+const gripMaterial = surfaceMaterial('leather');
+const steelMaterial = surfaceMaterial('metal');
 const edgeMaterial = new THREE.MeshStandardMaterial({
   color: 0xb9c5ca, metalness: .85, roughness: .2,
 });
