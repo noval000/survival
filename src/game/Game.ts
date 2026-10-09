@@ -1,3 +1,6 @@
+import { ResourceLOD } from '../graphics/ResourceLOD';
+import { WorldModelOverrides } from '../graphics/WorldModelOverrides';
+import { PerformanceGovernor } from '../graphics/PerformanceGovernor';
 import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
 import { Footsteps } from '../graphics/Footsteps';
 import { SurvivalVitals } from './SurvivalVitals';
@@ -36,6 +39,7 @@ const worldClock=new WorldClock(scene,sun);
 const exploration=new ExplorationHUD(document.querySelector<HTMLElement>('#hud')!);
 let quality:Quality=defaultQuality();
 applyQuality(renderer,sun,quality);
+const performance = new PerformanceGovernor(renderer,sun,quality,next => { quality=next; applyQuality(renderer,sun,next); const button=document.querySelector('#quality-button'); if(button) button.textContent='ГРАФИКА: '+next.toUpperCase(); });
 const survivor=new Survivor();
 const footsteps=new Footsteps(scene);
 const player=survivor.root;
@@ -47,9 +51,14 @@ function animateCharacter(dt:number,moving:boolean,running:boolean){
   swingTime=Math.max(0,swingTime-dt);
 }
 const nodes:Node[]=[];
+const resourceLOD=new ResourceLOD();
+const modelOverrides=new WorldModelOverrides();
+void modelOverrides.initialize().then(()=>{
+  for(const node of nodes) void modelOverrides.replace(node.mesh,node.kind==='tree'?'pine':'boulder');
+});
 const harvestEffects = new HarvestEffects(scene);
-function tree(x:number,z:number){const node=makeTree(x,z,rand);scene.add(node.mesh);nodes.push(node)}
-function rock(x:number,z:number){const node=makeRock(x,z,rand);scene.add(node.mesh);nodes.push(node)}
+function tree(x:number,z:number){const node=makeTree(x,z,rand);scene.add(node.mesh);nodes.push(node);resourceLOD.register(node);void modelOverrides.replace(node.mesh,'pine')}
+function rock(x:number,z:number){const node=makeRock(x,z,rand);scene.add(node.mesh);nodes.push(node);resourceLOD.register(node);void modelOverrides.replace(node.mesh,'boulder')}
 for(let i=0;i<100;i++){const x=(rand()-.5)*160,z=(rand()-.5)*160;if(Math.hypot(x,z)<17)continue;(rand()<.73?tree:rock)(x,z)}for(let i=0;i<12;i++){const a=i*2.4;tree(Math.cos(a)* (17+i*2),Math.sin(a)*(17+i*2))}for(let i=0;i<8;i++){const a=i*3.7;rock(Math.cos(a)* (13+i*3),Math.sin(a)*(13+i*3))}
 const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
 function foundation(x:number,z:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,.32,4),building);m.position.set(x,.16,z);m.receiveShadow=true;m.castShadow=true;scene.add(m)}function wall(x:number,z:number,rot:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,3,.25),building);m.position.set(x,1.65,z);m.rotation.y=rot;m.castShadow=true;scene.add(m)}foundations.forEach(v=>foundation(v.x,v.z));walls.forEach(v=>wall(v.x,v.z,v.rot));
@@ -75,7 +84,7 @@ harvestEffects.impact(n);
 if(n.hp<=0){
   const count=n.kind==='tree'?8:6;
   resources[n.kind==='tree'?'wood':'stone']+=count;
-  nodes.splice(nodes.indexOf(n),1);
+  nodes.splice(nodes.indexOf(n),1);resourceLOD.unregister(n);
   destroyResource(n,scene,player.position);
  toast(`+${count} ${n.kind==='tree'?'дерева':'камня'}`);save();renderPanel()}else toast('Удар! Еще '+n.hp)}
 function place(){const p=placement(buildType,player.position,yaw,foundations,walls);if(!p.valid){toast(buildType==='wall'?'Стена должна крепиться к краю фундамента':'Здесь нельзя строить');return}if(buildType==='foundation'){if(resources.wood<10){toast('Нужно 10 дерева');return}resources.wood-=10;foundations.push({x:p.x,z:p.z});foundation(p.x,p.z)}else{if(resources.wood<6||resources.stone<2){toast('Нужно 6 дерева и 2 камня');return}resources.wood-=6;resources.stone-=2;walls.push({x:p.x,z:p.z,rot:p.rot});wall(p.x,p.z,p.rot)}toast('Постройка установлена');save();renderPanel()}
@@ -107,7 +116,7 @@ const timeState=worldClock.update(dt,storm);
 environment.atmosphere.setDaylight(timeState.daylight,storm);
 exploration.update(player.position,yaw,timeState.time,storm);
 wildlife.update(dt,player.position);
-scenery.update(elapsed);
+scenery.update(elapsed,camera.position,dt);resourceLOD.update(dt,camera.position);
 if((locked||touchDevice&&started)&&!openPanel){const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));const move=new THREE.Vector3();if(keys.has('KeyW'))move.add(forward);if(keys.has('KeyS'))move.sub(forward);if(keys.has('KeyD'))move.add(right);if(keys.has('KeyA'))move.sub(right);if(touchDevice){move.addScaledVector(forward,touch.y);move.addScaledVector(right,touch.x)}const moving=move.lengthSq()>0;if(moving){
 const direction=move.normalize();
 const nextX=player.position.x+direction.x*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
@@ -137,5 +146,5 @@ document.querySelector<HTMLElement>('#foodBar')!.style.width=v.hunger+'%';
 document.querySelector<HTMLElement>('#waterBar')!.style.width=v.hydration+'%';
 document.querySelector<HTMLElement>('#staminaBar')!.style.width=v.stamina+'%';
 document.querySelector<HTMLElement>('#tempBar')!.style.width=THREE.MathUtils.clamp((v.temperature-32)*12,0,100)+'%';
-const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-const qualityButton=document.createElement('button');qualityButton.id='quality-button';qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase();document.querySelector('#hud')?.append(qualityButton);qualityButton.addEventListener('click',()=>{quality=quality==='high'?'medium':quality==='medium'?'low':'high';applyQuality(renderer,sun,quality);qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase()});
+const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera);performance.update(dt)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+const qualityButton=document.createElement('button');qualityButton.id='quality-button';qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase();document.querySelector('#hud')?.append(qualityButton);qualityButton.addEventListener('click',()=>{quality=quality==='high'?'medium':quality==='medium'?'low':'high';applyQuality(renderer,sun,quality);performance.setQuality(quality);qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase()});
