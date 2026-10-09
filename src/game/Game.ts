@@ -1,3 +1,4 @@
+import { SurvivalVitals } from './SurvivalVitals';
 import { terrainHeight, terrainSlope } from '../world/Terrain';
 import * as THREE from 'three';
 import { createEnvironment } from '../world/Environment';
@@ -88,7 +89,16 @@ const touch=createTouchControls({
 document.addEventListener('keydown',e=>{if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='Digit1'){tool=1;buildMode=false;updateSlots()}if(e.code==='Digit2'){tool=2;buildMode=false;updateSlots()}if(e.code==='KeyI'||e.code==='KeyB'){const next=e.code==='KeyI'?'inventory':'build';openPanel=openPanel===next?'':next;if(e.code==='KeyB')buildMode=true;updateSlots();renderPanel();if(openPanel&&document.pointerLockElement)document.exitPointerLock()}if(e.code==='KeyE'&&buildMode&&!openPanel)place()});document.addEventListener('keyup',e=>keys.delete(e.code));
 let verticalVelocity=0;
 let grounded=true;
-let hunger=100,water=100,health=100;const clock=new THREE.Clock();let elapsed=0;function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);harvestEffects.update(dt);
+const vitals=new SurvivalVitals();
+const stats=document.querySelector<HTMLElement>('.stats')!;
+const staminaStat=document.createElement('div');
+staminaStat.className='stat';
+staminaStat.innerHTML='<small>ВЫНОСЛИВОСТЬ <span id="staminaNum">100</span></small><div class="track"><div id="staminaBar" class="fill" style="width:100%"></div></div>';
+stats.append(staminaStat);
+const tempStat=document.createElement('div');
+tempStat.className='stat';
+tempStat.innerHTML='<small>ТЕМПЕРАТУРА <span id="tempNum">36.8°C</span></small><div class="track"><div id="tempBar" class="fill" style="width:50%"></div></div>';
+stats.append(tempStat);const clock=new THREE.Clock();let elapsed=0;function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);harvestEffects.update(dt);
 const storm=weather.update(dt,player.position);
 const timeState=worldClock.update(dt,storm);
 environment.atmosphere.setDaylight(timeState.daylight,storm);
@@ -97,15 +107,31 @@ wildlife.update(dt,player.position);
 scenery.update(elapsed);
 if((locked||touchDevice&&started)&&!openPanel){const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));const move=new THREE.Vector3();if(keys.has('KeyW'))move.add(forward);if(keys.has('KeyS'))move.sub(forward);if(keys.has('KeyD'))move.add(right);if(keys.has('KeyA'))move.sub(right);if(touchDevice){move.addScaledVector(forward,touch.y);move.addScaledVector(right,touch.x)}const moving=move.lengthSq()>0;if(moving){
 const direction=move.normalize();
-const nextX=player.position.x+direction.x*dt*(keys.has('ShiftLeft')||touch.sprint?10:6);
+const nextX=player.position.x+direction.x*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
 const nextZ=player.position.z+direction.z*dt*(keys.has('ShiftLeft')||touch.sprint?10:6);
 const nextHeight=terrainHeight(nextX,nextZ);
 const climb=nextHeight-terrainHeight(player.position.x,player.position.z);
 if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7){player.position.x=nextX;player.position.z=nextZ;}
-}animateCharacter(dt,moving,keys.has('ShiftLeft')||touch.sprint);if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
+}animateCharacter(dt,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
 verticalVelocity-=18*dt;
 player.position.y+=verticalVelocity*dt;
 const groundY=terrainHeight(player.position.x,player.position.z);
 if(player.position.y<=groundY){player.position.y=groundY;verticalVelocity=0;grounded=true;}
-player.position.x=THREE.MathUtils.clamp(player.position.x,-98,98);player.position.z=THREE.MathUtils.clamp(player.position.z,-98,98);player.rotation.y=yaw;elapsed+=dt;hunger=Math.max(0,hunger-dt*.025);water=Math.max(0,water-dt*.045);if(hunger===0||water===0)health=Math.max(0,health-dt*.15);document.querySelector('#foodNum')!.textContent=String(Math.ceil(hunger));document.querySelector('#waterNum')!.textContent=String(Math.ceil(water));document.querySelector('#healthNum')!.textContent=String(Math.ceil(health));document.querySelector<HTMLElement>('#foodBar')!.style.width=hunger+'%';document.querySelector<HTMLElement>('#waterBar')!.style.width=water+'%';const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);animateWater(environment.water,elapsed);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}camera.position.copy(player.position).add(new THREE.Vector3(Math.sin(yaw)*6,4+pitch*5,Math.cos(yaw)*6));temp.copy(player.position).add(new THREE.Vector3(0,1.6,0));camera.lookAt(temp);environment.atmosphere.update(dt,player.position);renderer.render(scene,camera)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+player.position.x=THREE.MathUtils.clamp(player.position.x,-98,98);player.position.z=THREE.MathUtils.clamp(player.position.z,-98,98);player.rotation.y=yaw;elapsed+=dt;const r=Math.hypot(player.position.x,player.position.z);
+const swimming=r>101&&player.position.y<.5;
+const v=vitals.update(dt,{
+  moving:keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,
+  sprinting:(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint(),
+  swimming,storm,daylight:timeState.daylight,
+});
+document.querySelector('#foodNum')!.textContent=String(Math.ceil(v.hunger));
+document.querySelector('#waterNum')!.textContent=String(Math.ceil(v.hydration));
+document.querySelector('#healthNum')!.textContent=String(Math.ceil(v.health));
+document.querySelector('#staminaNum')!.textContent=String(Math.ceil(v.stamina));
+document.querySelector('#tempNum')!.textContent=v.temperature.toFixed(1)+'°C';
+document.querySelector<HTMLElement>('#foodBar')!.style.width=v.hunger+'%';
+document.querySelector<HTMLElement>('#waterBar')!.style.width=v.hydration+'%';
+document.querySelector<HTMLElement>('#staminaBar')!.style.width=v.stamina+'%';
+document.querySelector<HTMLElement>('#tempBar')!.style.width=THREE.MathUtils.clamp((v.temperature-32)*12,0,100)+'%';
+const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);animateWater(environment.water,elapsed);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}camera.position.copy(player.position).add(new THREE.Vector3(Math.sin(yaw)*6,4+pitch*5,Math.cos(yaw)*6));temp.copy(player.position).add(new THREE.Vector3(0,1.6,0));camera.lookAt(temp);environment.atmosphere.update(dt,player.position);renderer.render(scene,camera)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 const qualityButton=document.createElement('button');qualityButton.id='quality-button';qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase();document.querySelector('#hud')?.append(qualityButton);qualityButton.addEventListener('click',()=>{quality=quality==='high'?'medium':quality==='medium'?'low':'high';applyQuality(renderer,sun,quality);qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase()});
