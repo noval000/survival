@@ -88,6 +88,7 @@ document.addEventListener('keydown',e=>{if(['Space','ArrowUp','ArrowDown'].inclu
 let hunger=100,water=100,health=100;const clock=new THREE.Clock();let elapsed=0;function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);harvestEffects.update(dt);
 const storm=weather.update(dt,player.position);
 const timeState=worldClock.update(dt,storm);
+environment.atmosphere.setDaylight(timeState.daylight,storm);
 exploration.update(player.position,yaw,timeState.time,storm);
 wildlife.update(dt,player.position);
 scenery.update(elapsed);
