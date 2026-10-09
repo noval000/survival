@@ -1,3 +1,4 @@
+import { createTerrain, terrainHeight } from './Terrain';
 import * as THREE from 'three';
 import { createSurfaceTextures } from './SurfaceTextures';
 import { createAtmosphere } from './Atmosphere';
@@ -18,17 +19,7 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
     transparent: true, opacity: 0.87, depthWrite: false,
   });
 
-  const shore = new THREE.Mesh(new THREE.CircleGeometry(104, 128), sand);
-  shore.rotation.x = -Math.PI / 2;
-  shore.position.y = 0.022;
-  shore.receiveShadow = true;
-  terrain.add(shore);
-
-  const inner = new THREE.Mesh(new THREE.CircleGeometry(94, 128), grass);
-  inner.rotation.x = -Math.PI / 2;
-  inner.position.y = 0.045;
-  inner.receiveShadow = true;
-  terrain.add(inner);
+  createTerrain(scene, sand, grass);
 
   // Large flat ocean: no dense tessellation or expensive transmission shader.
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), waterMaterial);
@@ -43,7 +34,7 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < 240; i++) {
     const angle = random() * Math.PI * 2;
     const radius = 90 + random() * 11;
-    patchDummy.position.set(Math.cos(angle) * radius, .051, Math.sin(angle) * radius);
+    patchDummy.position.set(Math.cos(angle) * radius, terrainHeight(Math.cos(angle) * radius, Math.sin(angle) * radius) + .051, Math.sin(angle) * radius);
     patchDummy.rotation.set(-Math.PI / 2, 0, random() * Math.PI * 2);
     patchDummy.scale.set(1.5 + random() * 4, 1 + random() * 2, 1);
     patchDummy.updateMatrix();
@@ -71,7 +62,7 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < grassCount; i++) {
     const a = random() * Math.PI * 2;
     const r = Math.sqrt(random()) * 91;
-    dummy.position.set(Math.cos(a) * r, 0.065, Math.sin(a) * r);
+    dummy.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r) + .065, Math.sin(a) * r);
     dummy.rotation.set(0, random() * Math.PI, (random() - 0.5) * 0.22);
     dummy.scale.setScalar(0.65 + random() * 1.35);
     dummy.updateMatrix();
@@ -90,7 +81,7 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < pebbleCount; i++) {
     const a = random() * Math.PI * 2;
     const r = Math.sqrt(random()) * 102;
-    dummy.position.set(Math.cos(a) * r, 0.10, Math.sin(a) * r);
+    dummy.position.set(Math.cos(a) * r, terrainHeight(Math.cos(a) * r, Math.sin(a) * r) + .10, Math.sin(a) * r);
     dummy.rotation.set(random() * 2, random() * 6, random() * 2);
     dummy.scale.setScalar(0.4 + random() * 2);
     dummy.updateMatrix();
@@ -107,7 +98,7 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < 1600; i++) {
     const angle = random() * Math.PI * 2;
     const radius = Math.sqrt(random()) * 89;
-    dummy.position.set(Math.cos(angle) * radius, .22 + random() * .1, Math.sin(angle) * radius);
+    dummy.position.set(Math.cos(angle) * radius, terrainHeight(Math.cos(angle) * radius, Math.sin(angle) * radius) + .22 + random() * .1, Math.sin(angle) * radius);
     dummy.rotation.set(0, random() * 6, 0);
     dummy.scale.setScalar(.6 + random() * 1.7);
     dummy.updateMatrix();
@@ -124,7 +115,7 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
   for (let i = 0; i < 65; i++) {
     const angle = random() * Math.PI * 2;
     const radius = 93 + random() * 9;
-    dummy.position.set(Math.cos(angle) * radius, .12, Math.sin(angle) * radius);
+    dummy.position.set(Math.cos(angle) * radius, terrainHeight(Math.cos(angle) * radius, Math.sin(angle) * radius) + .12, Math.sin(angle) * radius);
     dummy.rotation.set(Math.PI / 2 + (random() - .5) * .2, random() * Math.PI * 2, 0);
     dummy.scale.setScalar(.4 + random() * 1.1);
     dummy.updateMatrix();
