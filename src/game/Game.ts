@@ -1,3 +1,4 @@
+import { WorldModelOverrides } from '../graphics/WorldModelOverrides';
 import { PerformanceGovernor } from '../graphics/PerformanceGovernor';
 import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
 import { Footsteps } from '../graphics/Footsteps';
@@ -49,9 +50,13 @@ function animateCharacter(dt:number,moving:boolean,running:boolean){
   swingTime=Math.max(0,swingTime-dt);
 }
 const nodes:Node[]=[];
+const modelOverrides=new WorldModelOverrides();
+void modelOverrides.initialize().then(()=>{
+  for(const node of nodes) void modelOverrides.replace(node.mesh,node.kind==='tree'?'pine':'boulder');
+});
 const harvestEffects = new HarvestEffects(scene);
-function tree(x:number,z:number){const node=makeTree(x,z,rand);scene.add(node.mesh);nodes.push(node)}
-function rock(x:number,z:number){const node=makeRock(x,z,rand);scene.add(node.mesh);nodes.push(node)}
+function tree(x:number,z:number){const node=makeTree(x,z,rand);scene.add(node.mesh);nodes.push(node);void modelOverrides.replace(node.mesh,'pine')}
+function rock(x:number,z:number){const node=makeRock(x,z,rand);scene.add(node.mesh);nodes.push(node);void modelOverrides.replace(node.mesh,'boulder')}
 for(let i=0;i<100;i++){const x=(rand()-.5)*160,z=(rand()-.5)*160;if(Math.hypot(x,z)<17)continue;(rand()<.73?tree:rock)(x,z)}for(let i=0;i<12;i++){const a=i*2.4;tree(Math.cos(a)* (17+i*2),Math.sin(a)*(17+i*2))}for(let i=0;i<8;i++){const a=i*3.7;rock(Math.cos(a)* (13+i*3),Math.sin(a)*(13+i*3))}
 const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
 function foundation(x:number,z:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,.32,4),building);m.position.set(x,.16,z);m.receiveShadow=true;m.castShadow=true;scene.add(m)}function wall(x:number,z:number,rot:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,3,.25),building);m.position.set(x,1.65,z);m.rotation.y=rot;m.castShadow=true;scene.add(m)}foundations.forEach(v=>foundation(v.x,v.z));walls.forEach(v=>wall(v.x,v.z,v.rot));
