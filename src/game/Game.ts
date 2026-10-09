@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createEnvironment } from '../world/Environment';
 import { placement, createGhost } from '../building/Placement';
-import { createTool } from '../items/Tools';
+import { Survivor } from '../character/Survivor';
 import { makeTree, makeRock, HarvestEffects, destroyResource } from '../world/Resources';
 import type { Harvestable } from '../world/Resources';
 import { createTouchControls } from '../input/TouchControls';
@@ -21,24 +21,15 @@ let seed=112233;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4
 const environment=createEnvironment(scene,rand);
 let quality:Quality=defaultQuality();
 applyQuality(renderer,sun,quality);
-const player=new THREE.Group();scene.add(player);player.position.set(0,0,8);
-const skin=mat(0xc99a73),cloth=mat(0x41594b),pants=mat(0x343c3d),leather=mat(0x655039),metal=mat(0x77838b);
-function part(parent:THREE.Object3D,geo:THREE.BufferGeometry,m:THREE.Material,x:number,y:number,z:number){const mesh=new THREE.Mesh(geo,m);mesh.position.set(x,y,z);mesh.castShadow=true;parent.add(mesh);return mesh}
-part(player,new THREE.CapsuleGeometry(.39,.58,6,12),cloth,0,1.48,0);
-part(player,new THREE.SphereGeometry(.285,24,16),skin,0,2.27,0);
-part(player,new THREE.SphereGeometry(.292,24,12,0,Math.PI*2,0,Math.PI*.42),mat(0x302b23),0,2.29,0);
-part(player,new THREE.BoxGeometry(.74,.65,.26),leather,0,1.43,.37);
-for(const x of [-.11,.11])part(player,new THREE.SphereGeometry(.025,8,6),mat(0x222222),x,2.29,-.263);
-part(player,new THREE.BoxGeometry(.19,.08,.08),mat(0x735344),0,2.12,-.265);
-const leftArm=new THREE.Group(),rightArm=new THREE.Group(),leftLeg=new THREE.Group(),rightLeg=new THREE.Group();
-leftArm.position.set(-.52,1.86,0);rightArm.position.set(.52,1.86,0);leftLeg.position.set(-.23,1.02,0);rightLeg.position.set(.23,1.02,0);
-for(const limb of [leftArm,rightArm,leftLeg,rightLeg])player.add(limb);
-for(const arm of [leftArm,rightArm]){part(arm,new THREE.CapsuleGeometry(.135,.48,5,10),cloth,0,-.34,0);part(arm,new THREE.BoxGeometry(.24,.22,.26),skin,0,-.78,0)}
-for(const leg of [leftLeg,rightLeg]){part(leg,new THREE.CapsuleGeometry(.15,.64,5,10),pants,0,-.43,0);part(leg,new THREE.BoxGeometry(.33,.18,.49),leather,0,-.89,-.08)}
-const heldTool=new THREE.Group();rightArm.add(heldTool);heldTool.position.set(0,-.8,-.08);
-const axe=createTool(heldTool,'axe');const pickaxe=createTool(heldTool,'pickaxe');
-let swingTime=0,walkPhase=0,walkWeight=0;
-function animateCharacter(dt:number,moving:boolean,running:boolean){walkWeight=THREE.MathUtils.damp(walkWeight,moving?1:0,9,dt);walkPhase+=dt*(running?12:8);const stride=Math.sin(walkPhase)*walkWeight*(running?.75:.52);leftLeg.rotation.x=stride;rightLeg.rotation.x=-stride;leftArm.rotation.x=-stride*.7;rightArm.rotation.x=stride*.7;player.position.y=0; if(swingTime>0){swingTime=Math.max(0,swingTime-dt);const t=1-swingTime/.48;rightArm.rotation.x=-.4-Math.sin(t*Math.PI)*1.65;rightArm.rotation.z=-.18; }else rightArm.rotation.z=0;axe.visible=tool===1;pickaxe.visible=tool===2}
+const survivor=new Survivor();
+const player=survivor.root;
+scene.add(player);
+player.position.set(0,0,8);
+let swingTime=0;
+function animateCharacter(dt:number,moving:boolean,running:boolean){
+  survivor.update(dt,moving,running,tool);
+  swingTime=Math.max(0,swingTime-dt);
+}
 const nodes:Node[]=[];
 const harvestEffects = new HarvestEffects(scene);
 function tree(x:number,z:number){const node=makeTree(x,z,rand);scene.add(node.mesh);nodes.push(node)}
@@ -63,7 +54,7 @@ panel.querySelector('#closeBtn')?.addEventListener('click',()=>{openPanel='';ren
 function updateSlots(){document.querySelector('#tool1')?.classList.toggle('active',!buildMode&&tool===1);document.querySelector('#tool2')?.classList.toggle('active',!buildMode&&tool===2);document.querySelector('#buildSlot')?.classList.toggle('active',buildMode)}
 let yaw=0,pitch=.25,locked=false,started=false;const keys=new Set<string>();const temp=new THREE.Vector3();
 function target(){let best:Node|null=null,dist=4.5;for(const n of nodes){const d=player.position.distanceTo(n.mesh.position);if(d<dist){best=n;dist=d}}return best}
-function hit(){if(!buildMode&&swingTime>0)return;if(!buildMode)swingTime=.48;if(buildMode){place();return}const n=target();if(!n){toast('Подойдите ближе к дереву или камню');return}if((n.kind==='tree'&&tool!==1)||(n.kind==='rock'&&tool!==2)){toast(n.kind==='tree'?'Нужен топор (1)':'Нужна кирка (2)');return}n.hp--;
+function hit(){if(!buildMode&&swingTime>0)return;if(!buildMode){if(!survivor.attack())return;swingTime=.48;}if(buildMode){place();return}const n=target();if(!n){toast('Подойдите ближе к дереву или камню');return}if((n.kind==='tree'&&tool!==1)||(n.kind==='rock'&&tool!==2)){toast(n.kind==='tree'?'Нужен топор (1)':'Нужна кирка (2)');return}n.hp--;
 harvestEffects.impact(n);
 if(n.hp<=0){
   const count=n.kind==='tree'?8:6;
