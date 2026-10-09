@@ -1,3 +1,4 @@
+import { makeDetailedTree, makeDetailedRock, makeFallenLog, makeStump } from './DetailedAssets';
 import * as THREE from 'three';
 
 const materials = {
@@ -107,6 +108,25 @@ export function createScenery(scene: THREE.Scene, random: () => number) {
   trunks.castShadow = false;
   crowns.castShadow = false;
   root.add(trunks, crowns);
+
+  // Close-range hero assets: detailed branching silhouettes, fallen logs and stumps.
+  // Keep counts bounded to protect mobile GPU budgets.
+  for (let i = 0; i < 48; i++) {
+    const a = random() * Math.PI * 2;
+    const r = 18 + Math.sqrt(random()) * 69;
+    const hero = makeDetailedTree(random, i % 5 === 0 ? 'oak' : i % 2 ? 'spruce' : 'pine');
+    hero.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    root.add(hero);
+  }
+  for (let i = 0; i < 85; i++) {
+    const a = random() * Math.PI * 2;
+    const r = 15 + Math.sqrt(random()) * 75;
+    const detail = i % 3 === 0 ? makeDetailedRock(random, .65 + random()) :
+      i % 3 === 1 ? makeFallenLog(random) : makeStump(random);
+    detail.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    detail.rotation.y = random() * Math.PI * 2;
+    root.add(detail);
+  }
 
   // Beach foam rings: transparent bands around the shoreline.
   const foamMaterial = new THREE.MeshBasicMaterial({

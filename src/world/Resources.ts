@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { makeDetailedTree, makeDetailedRock } from './DetailedAssets';
 
 export type Harvestable = {
   kind: 'tree' | 'rock';
@@ -8,57 +9,20 @@ export type Harvestable = {
   falling?: boolean;
 };
 
-const bark = new THREE.MeshStandardMaterial({ color: 0x554132, roughness: 1 });
 const barkCut = new THREE.MeshStandardMaterial({ color: 0xc9a778, roughness: 1 });
-const needles = [
-  new THREE.MeshStandardMaterial({ color: 0x345a38, roughness: 1, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x426a3f, roughness: 1, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x294c35, roughness: 1, flatShading: true }),
-];
-const stone = new THREE.MeshStandardMaterial({ color: 0x858b88, roughness: 0.95, flatShading: true });
 const stoneInterior = new THREE.MeshStandardMaterial({ color: 0xabb0aa, roughness: 1 });
-
-const trunkGeo = new THREE.CylinderGeometry(0.15, 0.38, 4.4, 9);
-const crownGeos = Array.from({ length: 5 }, (_, i) =>
-  new THREE.ConeGeometry(2.15 - i * 0.24, 2.8, 8));
-const stoneGeo = new THREE.IcosahedronGeometry(1, 1);
 const chipGeo = new THREE.IcosahedronGeometry(0.15, 0);
 
-function mesh(parent: THREE.Group, geometry: THREE.BufferGeometry, material: THREE.Material,
-  x: number, y: number, z: number) {
-  const part = new THREE.Mesh(geometry, material);
-  part.position.set(x, y, z);
-  part.castShadow = true;
-  parent.add(part);
-  return part;
-}
-
 export function makeTree(x: number, z: number, random: () => number): Harvestable {
-  const root = new THREE.Group();
-  const trunk = mesh(root, trunkGeo, bark, 0, 2.2, 0);
-  trunk.receiveShadow = true;
-  // Layered crowns, irregular scales and varied materials avoid identical silhouettes.
-  for (let i = 0; i < 5; i++) {
-    const crown = mesh(root, crownGeos[i], needles[Math.floor(random() * needles.length)],
-      (random() - 0.5) * 0.16, 3.3 + i * 0.72, (random() - 0.5) * 0.16);
-    crown.rotation.y = random() * Math.PI;
-    crown.scale.x = 0.83 + random() * 0.34;
-    crown.scale.z = 0.83 + random() * 0.34;
-  }
-  root.scale.setScalar(0.75 + random() * 0.58);
-  root.rotation.y = random() * Math.PI * 2;
+  const variant = random() < .2 ? 'oak' : random() < .5 ? 'spruce' : 'pine';
+  const root = makeDetailedTree(random, variant);
+  root.scale.multiplyScalar(.75 + random() * .58);
   root.position.set(x, 0, z);
   return { kind: 'tree', mesh: root, hp: 5, maxHp: 5 };
 }
 
 export function makeRock(x: number, z: number, random: () => number): Harvestable {
-  const root = new THREE.Group();
-  for (let i = 0; i < 4; i++) {
-    const rock = mesh(root, stoneGeo, i === 0 ? stoneInterior : stone,
-      (random() - 0.5) * 1.2, 0.42, (random() - 0.5) * 1.2);
-    rock.scale.set(0.6 + random() * 0.45, 0.45 + random() * 0.25, 0.6 + random() * 0.45);
-    rock.rotation.set(random(), random() * 6, random());
-  }
+  const root = makeDetailedRock(random, .8 + random() * .65);
   root.position.set(x, 0, z);
   return { kind: 'rock', mesh: root, hp: 5, maxHp: 5 };
 }
