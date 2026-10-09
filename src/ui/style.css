@@ -32,3 +32,13 @@
   .stats{gap:3px}.stat{width:76px}
   .right{bottom:12px}
 }
+
+/* Exploration map and live environmental telemetry */
+.exploration-hud{position:absolute;left:22px;top:72px;z-index:3;pointer-events:none;color:#eaf4eb;font:600 11px/1.5 system-ui,sans-serif;text-shadow:0 1px 4px #000}
+.exploration-heading{display:flex;gap:9px;align-items:center;flex-wrap:wrap;max-width:235px;margin-bottom:8px}
+.exploration-heading span{padding:4px 7px;background:#112923ad;border:1px solid #ffffff36;border-radius:6px}
+.exploration-compass{color:#f6d58b}
+.exploration-map{display:block;width:156px;height:156px;border-radius:50%;box-shadow:0 3px 16px #0009;opacity:.85}
+.exploration-coords{margin-top:4px;font-size:10px;letter-spacing:.08em}
+@media(max-width:900px){.exploration-hud{left:12px;top:55px}.exploration-map{width:108px;height:108px}.exploration-heading{max-width:190px;gap:3px;font-size:9px}}
+@media(pointer:coarse){.exploration-hud{left:12px;top:48px}.exploration-map{width:88px;height:88px}.exploration-heading{max-width:150px;font-size:8px}.exploration-heading span{padding:2px 4px}.exploration-coords{font-size:8px}}
