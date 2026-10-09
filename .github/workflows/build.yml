@@ -9,6 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Verify Meshy pine LFS asset
+        run: |
+          test -s public/assets/models/trees/pine_01.glb
+          test "$(head -c 7 public/assets/models/trees/pine_01.glb)" != "version"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

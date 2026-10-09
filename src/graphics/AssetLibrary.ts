@@ -6,7 +6,7 @@ export type AssetKind =
   | 'axe' | 'pickaxe' | 'survivor';
 
 const assetPaths: Record<AssetKind, string> = {
-  pine: '/assets/models/pine.glb',
+  pine: '/assets/models/trees/pine_01.glb',
   spruce: '/assets/models/spruce.glb',
   oak: '/assets/models/oak.glb',
   boulder: '/assets/models/boulder.glb',
