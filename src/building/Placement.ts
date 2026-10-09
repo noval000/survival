@@ -1,3 +1,4 @@
+import { terrainHeight, terrainSlope } from '../world/Terrain';
 import * as THREE from 'three';
 
 export type Foundation = { x: number; z: number };
@@ -25,7 +26,7 @@ export function placement(
     const z = Math.round(aim.z / SIZE) * SIZE;
     return {
       x, z, rot: 0,
-      valid: Math.hypot(x, z) < 90
+      valid: terrainHeight(x,z)<.28 && terrainSlope(x,z)<.25 && Math.hypot(x, z) < 90
         && Math.hypot(x - position.x, z - position.z) <= REACH
         && !foundations.some(f => same(f.x, x) && same(f.z, z)),
     };
