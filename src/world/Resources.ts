@@ -1,3 +1,4 @@
+import { terrainHeight } from './Terrain';
 import * as THREE from 'three';
 import { makeDetailedTree, makeDetailedRock } from './DetailedAssets';
 
@@ -17,13 +18,13 @@ export function makeTree(x: number, z: number, random: () => number): Harvestabl
   const variant = random() < .2 ? 'oak' : random() < .5 ? 'spruce' : 'pine';
   const root = makeDetailedTree(random, variant);
   root.scale.multiplyScalar(.75 + random() * .58);
-  root.position.set(x, 0, z);
+  root.position.set(x, terrainHeight(x, z), z);
   return { kind: 'tree', mesh: root, hp: 5, maxHp: 5 };
 }
 
 export function makeRock(x: number, z: number, random: () => number): Harvestable {
   const root = makeDetailedRock(random, .8 + random() * .65);
-  root.position.set(x, 0, z);
+  root.position.set(x, terrainHeight(x, z), z);
   return { kind: 'rock', mesh: root, hp: 5, maxHp: 5 };
 }
 
