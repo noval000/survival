@@ -37,7 +37,7 @@ export class WorldModelOverrides {
     model.position.y = (config.yOffset ?? 0) - box.min.y * scale;
     // Preserve target as the gameplay collision/interaction root.
     for (const child of [...target.children]) {
-      target.remove(child);
+      if (child.name !== 'resource-lod-proxy') target.remove(child);
     }
     target.add(model);
     return true;
