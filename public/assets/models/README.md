@@ -1,28 +1,23 @@
 # Real 3D models
 
-The game now supports replacing procedural trees and boulders with real GLB
-meshes. These files are not included yet: adding an empty manifest will NOT
-make the game photorealistic.
+The world supports optional GLB replacements for harvestable trees and rocks.
+The first Meshy pine is stored at `trees/pine_01.glb` using Git LFS.
 
-1. Obtain properly licensed, game-ready glTF 2.0 models (for example, CC0
-   assets from Poly Haven or another verified asset library).
-2. Place `pine.glb` and `boulder.glb` in this directory.
-3. Create `manifest.json` alongside them:
+## Active assets
 
-```json
-{
-  "pine": { "scale": 1, "yOffset": 0 },
-  "boulder": { "scale": 1, "yOffset": 0 }
-}
-```
+- `trees/pine_01.glb`: Meshy pine, enabled by `manifest.json`.
+- Other asset kinds continue to use procedural fallback until their models and manifest entries are added.
 
-4. Run `npm run dev`. The loader automatically replaces the harvestable
-   tree/rock visuals while retaining the harvesting interaction roots.
-   Omit entries for missing files; the game uses procedural fallback meshes.
+The manifest entry `"pine": {}` enables automatic height normalization to
+approximately 6.5 game units. An optional `scale` overrides that normalization;
+`yOffset` adjusts the base position.
 
-**Important:** glTF scale must be verified visually. `scale` controls
-the model's native units, not automatic size normalization. High-resolution
-textures alone do not turn a low-poly model into a realistic one. For
-production, source professionally authored/scanned geometry, PBR normal
-and roughness maps, and several LODs. Do not download arbitrary copyrighted
-models into this repository.
+Run `npm run dev` to view the pine. Harvesting interactions are retained on the
+existing resource root. ResourceLOD uses a simple distant proxy beyond 22 units.
+
+**Performance warning:** The original Meshy pine is about 300 MiB. This is a
+temporary integration asset, not production-ready. Before shipping, reduce
+triangle count, texture sizes and file weight; inspect foliage transparency,
+shadows and frame rate in a browser. Git LFS stores the large source file but
+does not make runtime downloads smaller. CI/build environments must fetch Git
+LFS objects or the deployed GLB will be an LFS pointer rather than a model.
