@@ -1,7 +1,51 @@
 import * as THREE from 'three';
-export function createTool(parent:THREE.Group,kind:'axe'|'pickaxe'){
- const wood=new THREE.MeshStandardMaterial({color:0x70472c,roughness:.9});const steel=new THREE.MeshStandardMaterial({color:0x79858c,metalness:.7,roughness:.35});
- const root=new THREE.Group();parent.add(root);const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.92,10),wood);handle.position.y=-.42;handle.castShadow=true;root.add(handle);
- const head=kind==='axe'?new THREE.Mesh(new THREE.BoxGeometry(.55,.24,.12),steel):new THREE.Mesh(new THREE.ConeGeometry(.16,.72,5),steel);
- head.position.set(kind==='axe'?.19:0,-.79,0);if(kind==='pickaxe')head.rotation.z=Math.PI/2;head.castShadow=true;root.add(head);return root;
+
+const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x795238, roughness: .92 });
+const gripMaterial = new THREE.MeshStandardMaterial({ color: 0x332c26, roughness: .95 });
+const steelMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8e9ca5, metalness: .75, roughness: .27,
+});
+const edgeMaterial = new THREE.MeshStandardMaterial({
+  color: 0xb9c5ca, metalness: .85, roughness: .2,
+});
+
+function add(parent: THREE.Group, geometry: THREE.BufferGeometry, material: THREE.Material,
+  x: number, y: number, z: number) {
+  const part = new THREE.Mesh(geometry, material);
+  part.position.set(x, y, z);
+  part.castShadow = true;
+  parent.add(part);
+  return part;
+}
+
+export function createTool(parent: THREE.Group, kind: 'axe' | 'pickaxe') {
+  const root = new THREE.Group();
+  parent.add(root);
+  add(root, new THREE.CylinderGeometry(.038, .052, 1.03, 10),
+    handleMaterial, 0, -.44, 0);
+  for (let i = 0; i < 5; i++) {
+    add(root, new THREE.CylinderGeometry(.052, .052, .025, 10),
+      gripMaterial, 0, -.10 - i * .075, 0);
+  }
+  add(root, new THREE.CylinderGeometry(.063, .063, .065, 12),
+    gripMaterial, 0, -.92, 0);
+  if (kind === 'axe') {
+    const head = add(root, new THREE.BoxGeometry(.42, .23, .16),
+      steelMaterial, .16, -.83, 0);
+    head.rotation.z = -.06;
+    const blade = add(root, new THREE.CylinderGeometry(.18, .25, .34, 3),
+      edgeMaterial, .41, -.83, 0);
+    blade.rotation.z = Math.PI / 2;
+    blade.rotation.y = Math.PI / 2;
+    add(root, new THREE.BoxGeometry(.15, .26, .18), steelMaterial, -.06, -.83, 0);
+  } else {
+    add(root, new THREE.BoxGeometry(.57, .15, .15), steelMaterial, 0, -.84, 0);
+    const left = add(root, new THREE.ConeGeometry(.115, .39, 6),
+      edgeMaterial, -.45, -.84, 0);
+    left.rotation.z = Math.PI / 2;
+    const right = add(root, new THREE.ConeGeometry(.115, .39, 6),
+      edgeMaterial, .45, -.84, 0);
+    right.rotation.z = -Math.PI / 2;
+  }
+  return root;
 }
