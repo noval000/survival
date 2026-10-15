@@ -15,13 +15,15 @@ import { Wildlife } from '../world/Wildlife';
 import { createScenery } from '../world/Scenery';
 import { ExplorationHUD } from '../ui/ExplorationHUD';
 import { makeTree, makeRock, HarvestEffects, destroyResource } from '../world/Resources';
+import { createGeologicalSites, GEOLOGICAL_SITES } from '../world/Geology';
+import type { DepositKind } from '../world/Geology';
 import type { Harvestable } from '../world/Resources';
 import { createTouchControls } from '../input/TouchControls';
 import { applyQuality, defaultQuality } from '../graphics/Quality';
 import type { Quality } from '../graphics/Quality';
 
 type Node = Harvestable;
-type Save={wood:number;stone:number;walls:{x:number;z:number;rot:number}[];foundations:{x:number;z:number}[]};
+type Save={wood:number;stone:number;iron?:number;sulfur?:number;walls:{x:number;z:number;rot:number}[];foundations:{x:number;z:number}[]};
 const app=document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML=`<div id="hud"><div class="top"><div class="brand">ISLAND <span>//</span> SURVIVAL</div><div class="pill">ALPHA 0.3 · ОДИНОЧНЫЙ МИР</div></div><div class="help"><b>W A S D</b> — движение<br><b>Мышь</b> — осмотр<br><b>ЛКМ</b> — добывать ресурс<br><b>1</b> — топор · <b>2</b> — кирка<br><b>I</b> — инвентарь · <b>B</b> — стройка<br><b>E</b> — построить · <b>ESC</b> — курсор</div><div class="crosshair">+</div><div id="prompt" class="prompt">Найдите дерево или камень</div><div id="toast" class="toast"></div><div class="stats"><div class="stat"><small>ЗДОРОВЬЕ <span id="healthNum">100</span></small><div class="track"><div class="fill" style="width:100%"></div></div></div><div class="stat"><small>ВОДА <span id="waterNum">100</span></small><div class="track"><div id="waterBar" class="fill" style="width:100%"></div></div></div><div class="stat"><small>ЕДА <span id="foodNum">100</span></small><div class="track"><div id="foodBar" class="fill" style="width:100%"></div></div></div></div><div class="right"><div id="tool1" class="slot active">🪓<small>1 · ТОПОР</small></div><div id="tool2" class="slot">⛏️<small>2 · КИРКА</small></div><div id="buildSlot" class="slot">🏠<small>B · СТРОИТЬ</small></div></div><div id="panel" class="panel hidden"></div></div><div id="start"><div class="intro"><div class="brand">SURVIVAL SANDBOX · PROTOTYPE</div><h1>ISLAND</h1><p>Исследуйте остров. Рубите деревья, добывайте камень, стройте собственную базу. Ваш прогресс сохраняется в браузере.</p><button id="play" class="btn">НАЧАТЬ ВЫЖИВАНИЕ →</button><p style="font-size:12px">Для управления нужен компьютер с клавиатурой и мышью.</p></div></div>`;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91c4d3);scene.fog=new THREE.FogExp2(0x91c4d3,.007);
@@ -58,9 +60,15 @@ void modelOverrides.initialize().then(()=>{
 });
 const harvestEffects = new HarvestEffects(scene);
 function tree(x:number,z:number){const node=makeTree(x,z,rand);scene.add(node.mesh);nodes.push(node);resourceLOD.register(node);void modelOverrides.replace(node.mesh,'pine')}
-function rock(x:number,z:number){const node=makeRock(x,z,rand);scene.add(node.mesh);nodes.push(node);resourceLOD.register(node);void modelOverrides.replace(node.mesh,'boulder')}
-for(let i=0;i<100;i++){const x=(rand()-.5)*160,z=(rand()-.5)*160;if(Math.hypot(x,z)<17)continue;(rand()<.73?tree:rock)(x,z)}for(let i=0;i<12;i++){const a=i*2.4;tree(Math.cos(a)* (17+i*2),Math.sin(a)*(17+i*2))}for(let i=0;i<8;i++){const a=i*3.7;rock(Math.cos(a)* (13+i*3),Math.sin(a)*(13+i*3))}
-const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
+function rock(x:number,z:number,deposit:DepositKind='stone'){const node=makeRock(x,z,rand,deposit);scene.add(node.mesh);nodes.push(node);resourceLOD.register(node);if(deposit==='stone')void modelOverrides.replace(node.mesh,'boulder')}
+// Fewer trees; rocks and ores appear only in geological landmarks.
+for(let i=0;i<36;i++){
+  const x=(rand()-.5)*160,z=(rand()-.5)*160;
+  if(Math.hypot(x,z)<19 || GEOLOGICAL_SITES.some(site=>Math.hypot(x-site.x,z-site.z)<site.radius+3))continue;
+  tree(x,z);
+}
+createGeologicalSites(scene,rand,(x,z,deposit)=>rock(x,z,deposit));
+const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0,iron:saved?.iron??0,sulfur:saved?.sulfur??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
 function foundation(x:number,z:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,.32,4),building);m.position.set(x,.16,z);m.receiveShadow=true;m.castShadow=true;scene.add(m)}function wall(x:number,z:number,rot:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,3,.25),building);m.position.set(x,1.65,z);m.rotation.y=rot;m.castShadow=true;scene.add(m)}foundations.forEach(v=>foundation(v.x,v.z));walls.forEach(v=>wall(v.x,v.z,v.rot));
 function save(){localStorage.setItem('island-save-v1',JSON.stringify({...resources,foundations,walls}))}let toastTimeout=0;function toast(msg:string){const el=document.querySelector<HTMLElement>('#toast')!;el.textContent=msg;el.classList.add('show');clearTimeout(toastTimeout);toastTimeout=window.setTimeout(()=>el.classList.remove('show'),2300)}
 const ghost=createGhost(scene);
@@ -68,7 +76,7 @@ const touchDevice=matchMedia('(pointer: coarse)').matches;
 const panel=document.querySelector<HTMLElement>('#panel')!;let openPanel='' ;let tool=1;let buildMode=false;let buildType:'foundation'|'wall'='foundation';
 type Item={id:string;label:string;icon:string;count:number};
 const inventory:Item[]=[{id:'axe',label:'Топор',icon:'🪓',count:1},{id:'pickaxe',label:'Кирка',icon:'⛏️',count:1}];
-function inventoryItems(){return [...inventory,{id:'wood',label:'Древесина',icon:'🪵',count:resources.wood},{id:'stone',label:'Камень',icon:'🪨',count:resources.stone}].filter(i=>i.count>0)}
+function inventoryItems(){return [...inventory,{id:'wood',label:'Древесина',icon:'🪵',count:resources.wood},{id:'stone',label:'Камень',icon:'🪨',count:resources.stone},{id:'iron',label:'Железная руда',icon:'⛓️',count:resources.iron},{id:'sulfur',label:'Сера',icon:'🟡',count:resources.sulfur}].filter(i=>i.count>0)}
 let selectedSlot=0;
 function renderPanel(){if(!openPanel){panel.classList.add('hidden');panel.classList.remove('fullscreen');return}panel.classList.remove('hidden');panel.classList.toggle('fullscreen',openPanel==='inventory');
 if(openPanel==='inventory'){
@@ -83,10 +91,11 @@ function hit(){if(!buildMode&&swingTime>0)return;if(!buildMode){if(!survivor.att
 harvestEffects.impact(n);
 if(n.hp<=0){
   const count=n.kind==='tree'?8:6;
-  resources[n.kind==='tree'?'wood':'stone']+=count;
+  const resource = n.kind==='tree'?'wood':(n.deposit??'stone');
+  resources[resource]+=count;
   nodes.splice(nodes.indexOf(n),1);resourceLOD.unregister(n);
   destroyResource(n,scene,player.position);
- toast(`+${count} ${n.kind==='tree'?'дерева':'камня'}`);save();renderPanel()}else toast('Удар! Еще '+n.hp)}
+ toast(`+${count} ${n.kind==='tree'?'дерева':n.deposit==='iron'?'железной руды':n.deposit==='sulfur'?'серы':'камня'}`);save();renderPanel()}else toast('Удар! Еще '+n.hp)}
 function place(){const p=placement(buildType,player.position,yaw,foundations,walls);if(!p.valid){toast(buildType==='wall'?'Стена должна крепиться к краю фундамента':'Здесь нельзя строить');return}if(buildType==='foundation'){if(resources.wood<10){toast('Нужно 10 дерева');return}resources.wood-=10;foundations.push({x:p.x,z:p.z});foundation(p.x,p.z)}else{if(resources.wood<6||resources.stone<2){toast('Нужно 6 дерева и 2 камня');return}resources.wood-=6;resources.stone-=2;walls.push({x:p.x,z:p.z,rot:p.rot});wall(p.x,p.z,p.rot)}toast('Постройка установлена');save();renderPanel()}
 function toggleStart(show:boolean){document.querySelector('#start')?.classList.toggle('hidden',!show)}document.querySelector('#play')?.addEventListener('click',()=>{if(touchDevice){started=true;toggleStart(false)}else renderer.domElement.requestPointerLock()});renderer.domElement.addEventListener('click',()=>{if(touchDevice)return;if(!locked){renderer.domElement.requestPointerLock();return}if(!openPanel)hit()});document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked)started=true;toggleStart(!started);if(locked){openPanel='';renderPanel()}});document.addEventListener('mousemove',e=>{if(!locked)return;yaw-=e.movementX*.0025;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.002,-.45,1.0)});
 const touch=createTouchControls({
@@ -146,5 +155,5 @@ document.querySelector<HTMLElement>('#foodBar')!.style.width=v.hunger+'%';
 document.querySelector<HTMLElement>('#waterBar')!.style.width=v.hydration+'%';
 document.querySelector<HTMLElement>('#staminaBar')!.style.width=v.stamina+'%';
 document.querySelector<HTMLElement>('#tempBar')!.style.width=THREE.MathUtils.clamp((v.temperature-32)*12,0,100)+'%';
-const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera);performance.update(dt)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':n.deposit==='iron'?'ЖЕЛЕЗНАЯ РУДА · КИРКА':n.deposit==='sulfur'?'СЕРА · КИРКА':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera);performance.update(dt)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 const qualityButton=document.createElement('button');qualityButton.id='quality-button';qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase();document.querySelector('#hud')?.append(qualityButton);qualityButton.addEventListener('click',()=>{quality=quality==='high'?'medium':quality==='medium'?'low':'high';applyQuality(renderer,sun,quality);performance.setQuality(quality);qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase()});
