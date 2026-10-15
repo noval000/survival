@@ -64,7 +64,7 @@ export class WorldAssets {
   }
 }
 
-export async function populateModelWorld(scene: THREE.Scene, random: () => number) {
+export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void) {
   const assets = new WorldAssets();
   const sites = [
     { name: 'rocky_mountain_01', x: -53, z: -37, h: 17 },
@@ -89,6 +89,8 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
     if (positions.some(pos => Math.hypot(x - pos.x, z - pos.z) < 9)) continue;
     positions.push({x,z});
   }
-  await Promise.all(positions.map(({x,z}) =>
-    assets.place(scene, trees[Math.floor(random() * trees.length)], x, z, 6 + random() * 3, random() * Math.PI * 2)));
+  await Promise.all(positions.map(async ({x,z}) => {
+    const tree = await assets.place(scene, trees[Math.floor(random() * trees.length)], x, z, 6 + random() * 3, random() * Math.PI * 2);
+    if (tree) onTree?.(tree);
+  }));
 }
