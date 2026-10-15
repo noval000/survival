@@ -93,18 +93,27 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
     place(site.name, site.x, site.z, site.h)));
 
-  // Blender kit: floor Y=0, modules 6m long, connections at Z=+/-3.
-  // The terrain is levelled under these sites in Terrain.ts.
+  // Original Meshy GLBs have unrelated dimensions and pivots.
+  // Normalize their height, align the lowest vertex with the terrain pad,
+  // and position each next section from the previous world-space bounds.
   async function buildPassage(names: string[], x: number, z: number) {
     const floorY = terrainHeight(x, z);
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
+    let previous: THREE.Group | null = null;
+    for (const name of names) {
       if (!hasWorldModel(name)) continue;
-      const object = await assets.place(scene, name, x, z - i * 6, 1, 0, true);
+      const object = await assets.place(scene, name, x, z, 5);
       if (!object) continue;
       object.position.y = floorY;
       object.updateWorldMatrix(true, true);
+      if (previous) {
+        const previousBounds = new THREE.Box3().setFromObject(previous);
+        const currentBounds = new THREE.Box3().setFromObject(object);
+        // Touch bounding-box ends with a small overlap to avoid visible seams.
+        object.position.z += previousBounds.min.z - currentBounds.max.z + 0.15;
+        object.updateWorldMatrix(true, true);
+      }
       onCollider?.(object);
+      previous = object;
     }
   }
   await Promise.all([
