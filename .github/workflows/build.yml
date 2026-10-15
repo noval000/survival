@@ -11,10 +11,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Verify Meshy pine LFS asset
+      - name: Verify Meshy pine LOD assets
         run: |
-          test -s public/assets/models/trees/pine_01.glb
-          test "$(head -c 7 public/assets/models/trees/pine_01.glb)" != "version"
+          for lod in 0 1 2; do
+            file="public/assets/models/trees/pine_01_lod${lod}.glb"
+            test -s "$file"
+            test "$(head -c 7 "$file")" != "version"
+          done
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
