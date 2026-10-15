@@ -11,7 +11,7 @@ export async function initializeWorldModels() {
     if (!response.ok) return;
     const entries = await response.json() as Record<string, string[]>;
     for (const [name, levels] of Object.entries(entries)) models.set(name, { name, levels });
-  } catch { /* No models means no spawned world objects. */ }
+  } catch (error) { console.error('World model registry unavailable', error); }
 }
 
 export function hasWorldModel(name: string) { return Boolean(models.get(name)?.levels[0]); }
@@ -23,7 +23,7 @@ export class WorldAssets {
   private async load(url: string): Promise<THREE.Group | null> {
     let task = this.cache.get(url);
     if (!task) {
-      task = new Promise(resolve => this.loader.load(url, gltf => resolve(gltf.scene), undefined, () => resolve(null)));
+      task = new Promise(resolve => this.loader.load(url, gltf => resolve(gltf.scene), undefined, error => { console.error('GLB load failed:', url, error); resolve(null); }));
       this.cache.set(url, task);
     }
     const original = await task;
@@ -32,14 +32,14 @@ export class WorldAssets {
   async place(scene: THREE.Scene, name: string, x: number, z: number, height: number, rotation = 0): Promise<THREE.Group | null> {
     const config = models.get(name);
     if (!config?.levels[0]) return null;
+    // Display LOD0 as soon as it loads. Do not block the entire world
+    // waiting for every high-poly LOD of every object.
+    const first = await this.load(config.levels[0]);
+    if (!first) return null;
     const lod = new THREE.LOD();
-    for (let i = 0; i < 3; i++) {
-      const url = config.levels[i];
-      if (!url) continue;
-      const group = await this.load(url);
-      if (!group) continue;
+    const setup = (group: THREE.Group, distance: number) => {
       const box = new THREE.Box3().setFromObject(group);
-      if (box.isEmpty()) continue;
+      if (box.isEmpty()) return false;
       const size = new THREE.Vector3();
       box.getSize(size);
       const scale = height / Math.max(.001, size.y);
@@ -51,20 +51,34 @@ export class WorldAssets {
           object.receiveShadow = true;
         }
       });
-      lod.addLevel(group, i === 0 ? 0 : i === 1 ? 28 : 65);
+      lod.addLevel(group, distance);
+      return true;
+    };
+    if (!setup(first, 0)) {
+      console.error('Empty GLB scene:', name);
+      return null;
     }
-    if (!lod.levels.length) return null;
     const root = new THREE.Group();
     root.position.set(x, terrainHeight(x, z), z);
     root.rotation.y = rotation;
     root.add(lod);
     scene.add(root);
+    // Load optional distance levels without delaying visible objects.
+    void (async () => {
+      for (let i = 1; i < 3; i++) {
+        const url = config.levels[i];
+        if (!url) continue;
+        const group = await this.load(url);
+        if (group) setup(group, i === 1 ? 28 : 65);
+      }
+    })();
     return root;
   }
 }
 
 export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void) {
   await initializeWorldModels();
+  console.info('Available world GLBs:', availableWorldModels());
   const assets = new WorldAssets();
   const sites = [
     { name: 'rocky_mountain_01', x: -53, z: -37, h: 17 },
@@ -78,6 +92,7 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   ];
   await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
     assets.place(scene, site.name, site.x, site.z, site.h)));
+  console.info('World landmarks loaded');
   const trees = ['pine_01', 'spruce_01'].filter(hasWorldModel);
   if (!trees.length) return;
   const positions: {x:number;z:number}[] = [];
