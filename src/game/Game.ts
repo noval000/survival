@@ -1,3 +1,4 @@
+import { WorldCollisions } from '../world/WorldCollisions';
 import { PerformanceGovernor } from '../graphics/PerformanceGovernor';
 import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
 import { Footsteps } from '../graphics/Footsteps';
@@ -49,9 +50,10 @@ function animateCharacter(dt:number,moving:boolean,running:boolean){
 }
 const nodes:Node[]=[];
 const harvestEffects = new HarvestEffects(scene);
+const worldCollisions = new WorldCollisions();
 void populateModelWorld(scene,rand,mesh=>{
   nodes.push({kind:'tree',mesh,hp:5,maxHp:5});
-});
+}, object=>worldCollisions.register(object));
 const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
 function foundation(x:number,z:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,.32,4),building);m.position.set(x,.16,z);m.receiveShadow=true;m.castShadow=true;scene.add(m)}function wall(x:number,z:number,rot:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,3,.25),building);m.position.set(x,1.65,z);m.rotation.y=rot;m.castShadow=true;scene.add(m)}foundations.forEach(v=>foundation(v.x,v.z));walls.forEach(v=>wall(v.x,v.z,v.rot));
 function save(){localStorage.setItem('island-save-v1',JSON.stringify({...resources,foundations,walls}))}let toastTimeout=0;function toast(msg:string){const el=document.querySelector<HTMLElement>('#toast')!;el.textContent=msg;el.classList.add('show');clearTimeout(toastTimeout);toastTimeout=window.setTimeout(()=>el.classList.remove('show'),2300)}
@@ -115,7 +117,7 @@ const nextX=player.position.x+direction.x*dt*((keys.has('ShiftLeft')||touch.spri
 const nextZ=player.position.z+direction.z*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
 const nextHeight=terrainHeight(nextX,nextZ);
 const climb=nextHeight-terrainHeight(player.position.x,player.position.z);
-if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7){player.position.x=nextX;player.position.z=nextZ;}
+if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7&&worldCollisions.canMove(player.position,nextX,nextZ)){player.position.x=nextX;player.position.z=nextZ;}
 }animateCharacter(dt,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());
 footsteps.update(dt,player.position,yaw,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint(),grounded);if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
 verticalVelocity-=18*dt;
