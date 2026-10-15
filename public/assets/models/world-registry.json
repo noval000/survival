@@ -1,18 +1,26 @@
 {
   "cave_entrance_01": [
-    "/assets/models/mines/cave_entrance_01_lod0.glb"
+    "/assets/models/mines/cave_entrance_01_lod0.glb",
+    "/assets/models/mines/cave_entrance_01_lod1.glb"
   ],
   "cave_tunnel_01": [
-    "/assets/models/mines/cave_tunnel_01_lod0.glb"
+    "/assets/models/mines/cave_tunnel_01_lod0.glb",
+    "/assets/models/mines/cave_tunnel_01_lod1.glb"
   ],
   "mine_entrance_01": [
-    "/assets/models/mines/mine_entrance_01_lod0.glb"
+    "/assets/models/mines/mine_entrance_01_lod0.glb",
+    "/assets/models/mines/mine_entrance_01_lod1.glb",
+    "/assets/models/mines/mine_entrance_01_lod2.glb"
   ],
   "mine_junction_01": [
-    "/assets/models/mines/mine_junction_01_lod0.glb"
+    "/assets/models/mines/mine_junction_01_lod0.glb",
+    "/assets/models/mines/mine_junction_01_lod1.glb",
+    "/assets/models/mines/mine_junction_01_lod2.glb"
   ],
   "mine_tunnel_01": [
-    "/assets/models/mines/mine_tunnel_01_lod0.glb"
+    "/assets/models/mines/mine_tunnel_01_lod0.glb",
+    "/assets/models/mines/mine_tunnel_01_lod1.glb",
+    "/assets/models/mines/mine_tunnel_01_lod2.glb"
   ],
   "cliff_01": [
     "/assets/models/terrain/mountains/cliff_01_lod0.glb",
