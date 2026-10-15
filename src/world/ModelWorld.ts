@@ -76,23 +76,46 @@ export class WorldAssets {
   }
 }
 
-export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void) {
+export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void, onCollider?: (object: THREE.Group) => void) {
   await initializeWorldModels();
   console.info('Available world GLBs:', availableWorldModels());
   const assets = new WorldAssets();
+  // Each modular piece is placed using the measured footprint of its
+  // predecessor, not independent hand-picked coordinates.
+  const place = async (name: string, x: number, z: number, height: number) => {
+    const object = await assets.place(scene, name, x, z, height);
+    if (object) onCollider?.(object);
+    return object;
+  };
   const sites = [
     { name: 'rocky_mountain_01', x: -53, z: -37, h: 17 },
     { name: 'cliff_01', x: -69, z: -28, h: 12 },
     { name: 'cliff_01', x: -38, z: -47, h: 11 },
-    { name: 'mine_entrance_01', x: 52, z: -36, h: 6 },
-    { name: 'mine_tunnel_01', x: 58, z: -42, h: 5 },
-    { name: 'mine_junction_01', x: 64, z: -48, h: 5 },
-    { name: 'cave_entrance_01', x: -56, z: 44, h: 6 },
-    { name: 'cave_tunnel_01', x: -63, z: 50, h: 5 },
   ];
   await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
-    assets.place(scene, site.name, site.x, site.z, site.h)));
-  console.info('World landmarks loaded');
+    place(site.name, site.x, site.z, site.h)));
+
+  async function buildPassage(
+    entranceName: string, tunnelName: string, junctionName: string | null,
+    x: number, z: number,
+  ) {
+    const entrance = await place(entranceName, x, z, 5);
+    if (!entrance) return;
+    const entranceSize = new THREE.Vector3();
+    new THREE.Box3().setFromObject(entrance).getSize(entranceSize);
+    // Modules share their local Z axis. The entrance faces toward +Z,
+    // with the passage extending toward -Z.
+    const step = Math.max(3, entranceSize.z * .75);
+    const tunnel = await place(tunnelName, x, z - step, 5);
+    if (!tunnel || !junctionName) return;
+    const tunnelSize = new THREE.Vector3();
+    new THREE.Box3().setFromObject(tunnel).getSize(tunnelSize);
+    await place(junctionName, x, z - step - Math.max(3, tunnelSize.z * .85), 5);
+  }
+  await Promise.all([
+    buildPassage('mine_entrance_01', 'mine_tunnel_01', 'mine_junction_01', 53, -34),
+    buildPassage('cave_entrance_01', 'cave_tunnel_01', null, -55, 45),
+  ]);
   const trees = ['pine_01', 'spruce_01'].filter(hasWorldModel);
   if (!trees.length) return;
   const positions: {x:number;z:number}[] = [];
@@ -106,6 +129,6 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   }
   await Promise.all(positions.map(async ({x,z}) => {
     const tree = await assets.place(scene, trees[Math.floor(random() * trees.length)], x, z, 6 + random() * 3, random() * Math.PI * 2);
-    if (tree) onTree?.(tree);
+    if (tree) { onTree?.(tree); onCollider?.(tree); }
   }));
 }
