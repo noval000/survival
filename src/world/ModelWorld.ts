@@ -29,7 +29,7 @@ export class WorldAssets {
     const original = await task;
     return original?.clone(true) ?? null;
   }
-  async place(scene: THREE.Scene, name: string, x: number, z: number, height: number, rotation = 0): Promise<THREE.Group | null> {
+  async place(scene: THREE.Scene, name: string, x: number, z: number, height: number, rotation = 0, modular = false): Promise<THREE.Group | null> {
     const config = models.get(name);
     if (!config?.levels[0]) return null;
     // Display LOD0 as soon as it loads. Do not block the entire world
@@ -42,9 +42,9 @@ export class WorldAssets {
       if (box.isEmpty()) return false;
       const size = new THREE.Vector3();
       box.getSize(size);
-      const scale = height / Math.max(.001, size.y);
+      const scale = modular ? 1 : height / Math.max(.001, size.y);
       group.scale.setScalar(scale);
-      group.position.y = -box.min.y * scale;
+      group.position.y = modular ? 0 : -box.min.y * scale;
       group.traverse(object => {
         if (object instanceof THREE.Mesh) {
           object.castShadow = true;
@@ -80,8 +80,6 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   await initializeWorldModels();
   console.info('Available world GLBs:', availableWorldModels());
   const assets = new WorldAssets();
-  // Each modular piece is placed using the measured footprint of its
-  // predecessor, not independent hand-picked coordinates.
   const place = async (name: string, x: number, z: number, height: number) => {
     const object = await assets.place(scene, name, x, z, height);
     if (object) onCollider?.(object);
@@ -95,26 +93,23 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
     place(site.name, site.x, site.z, site.h)));
 
-  async function buildPassage(
-    entranceName: string, tunnelName: string, junctionName: string | null,
-    x: number, z: number,
-  ) {
-    const entrance = await place(entranceName, x, z, 5);
-    if (!entrance) return;
-    const entranceSize = new THREE.Vector3();
-    new THREE.Box3().setFromObject(entrance).getSize(entranceSize);
-    // Modules share their local Z axis. The entrance faces toward +Z,
-    // with the passage extending toward -Z.
-    const step = Math.max(3, entranceSize.z * .75);
-    const tunnel = await place(tunnelName, x, z - step, 5);
-    if (!tunnel || !junctionName) return;
-    const tunnelSize = new THREE.Vector3();
-    new THREE.Box3().setFromObject(tunnel).getSize(tunnelSize);
-    await place(junctionName, x, z - step - Math.max(3, tunnelSize.z * .85), 5);
+  // Blender kit: floor Y=0, modules 6m long, connections at Z=+/-3.
+  // The terrain is levelled under these sites in Terrain.ts.
+  async function buildPassage(names: string[], x: number, z: number) {
+    const floorY = terrainHeight(x, z);
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      if (!hasWorldModel(name)) continue;
+      const object = await assets.place(scene, name, x, z - i * 6, 1, 0, true);
+      if (!object) continue;
+      object.position.y = floorY;
+      object.updateWorldMatrix(true, true);
+      onCollider?.(object);
+    }
   }
   await Promise.all([
-    buildPassage('mine_entrance_01', 'mine_tunnel_01', 'mine_junction_01', 53, -34),
-    buildPassage('cave_entrance_01', 'cave_tunnel_01', null, -55, 45),
+    buildPassage(['mine_entrance_01', 'mine_tunnel_01', 'mine_junction_01'], 53, -34),
+    buildPassage(['cave_entrance_01', 'cave_tunnel_01'], -55, 45),
   ]);
   const trees = ['pine_01', 'spruce_01'].filter(hasWorldModel);
   if (!trees.length) return;
