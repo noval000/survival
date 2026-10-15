@@ -76,7 +76,7 @@ export class WorldAssets {
   }
 }
 
-export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void) {
+export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void, onObject?: (object: THREE.Group) => void) {
   await initializeWorldModels();
   console.info('Available world GLBs:', availableWorldModels());
   const assets = new WorldAssets();
@@ -90,8 +90,10 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
     { name: 'cave_entrance_01', x: -56, z: 44, h: 6 },
     { name: 'cave_tunnel_01', x: -63, z: 50, h: 5 },
   ];
-  await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
-    assets.place(scene, site.name, site.x, site.z, site.h)));
+  await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(async site => {
+    const object = await assets.place(scene, site.name, site.x, site.z, site.h);
+    if (object) onObject?.(object);
+  }));
   console.info('World landmarks loaded');
   const trees = ['pine_01', 'spruce_01'].filter(hasWorldModel);
   if (!trees.length) return;
@@ -106,6 +108,6 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   }
   await Promise.all(positions.map(async ({x,z}) => {
     const tree = await assets.place(scene, trees[Math.floor(random() * trees.length)], x, z, 6 + random() * 3, random() * Math.PI * 2);
-    if (tree) onTree?.(tree);
+    if (tree) { onTree?.(tree); onObject?.(tree); }
   }));
 }
