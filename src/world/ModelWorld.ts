@@ -2,17 +2,16 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { terrainHeight } from './Terrain';
 
-// Vite discovers files at build time. Missing models never produce objects.
-const files = import.meta.glob('/public/assets/models/**/*.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+// Generated before dev/build from the actual GLB files.
 type Model = { name: string; levels: string[] };
 const models = new Map<string, Model>();
-for (const [path, url] of Object.entries(files)) {
-  const match = path.match(/\/([^/]+)_lod([012])\.glb$/);
-  if (!match) continue;
-  const name = match[1];
-  const model = models.get(name) ?? { name, levels: [] };
-  model.levels[Number(match[2])] = url;
-  models.set(name, model);
+export async function initializeWorldModels() {
+  try {
+    const response = await fetch('/assets/models/world-registry.json');
+    if (!response.ok) return;
+    const entries = await response.json() as Record<string, string[]>;
+    for (const [name, levels] of Object.entries(entries)) models.set(name, { name, levels });
+  } catch { /* No models means no spawned world objects. */ }
 }
 
 export function hasWorldModel(name: string) { return Boolean(models.get(name)?.levels[0]); }
@@ -65,6 +64,7 @@ export class WorldAssets {
 }
 
 export async function populateModelWorld(scene: THREE.Scene, random: () => number, onTree?: (tree: THREE.Group) => void) {
+  await initializeWorldModels();
   const assets = new WorldAssets();
   const sites = [
     { name: 'rocky_mountain_01', x: -53, z: -37, h: 17 },
