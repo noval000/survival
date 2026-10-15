@@ -1,9 +1,11 @@
 import { terrainHeight } from './Terrain';
 import * as THREE from 'three';
 import { makeDetailedTree, makeDetailedRock } from './DetailedAssets';
+import type { DepositKind } from './Geology';
 
 export type Harvestable = {
   kind: 'tree' | 'rock';
+  deposit?: DepositKind;
   mesh: THREE.Group;
   hp: number;
   maxHp: number;
@@ -22,10 +24,20 @@ export function makeTree(x: number, z: number, random: () => number): Harvestabl
   return { kind: 'tree', mesh: root, hp: 5, maxHp: 5 };
 }
 
-export function makeRock(x: number, z: number, random: () => number): Harvestable {
+export function makeRock(x: number, z: number, random: () => number, deposit: DepositKind = 'stone'): Harvestable {
   const root = makeDetailedRock(random, .8 + random() * .65);
   root.position.set(x, terrainHeight(x, z), z);
-  return { kind: 'rock', mesh: root, hp: 5, maxHp: 5 };
+  const tint = deposit === 'sulfur' ? 0xd4b641 : deposit === 'iron' ? 0x8a5946 : 0x858b86;
+  root.traverse(object => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    object.material = materials.map(material => {
+      const clone = material.clone();
+      if ('color' in clone && clone.color instanceof THREE.Color) clone.color.lerp(new THREE.Color(tint), .6);
+      return clone;
+    });
+  });
+  return { kind: 'rock', deposit, mesh: root, hp: deposit === 'stone' ? 5 : 7, maxHp: deposit === 'stone' ? 5 : 7 };
 }
 
 /** Lightweight impact particles. Updated inside the existing render loop. */
