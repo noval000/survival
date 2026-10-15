@@ -1,0 +1,37 @@
+{
+  "cave_entrance_01": [
+    "/assets/models/mines/cave_entrance_01_lod0.glb"
+  ],
+  "cave_tunnel_01": [
+    "/assets/models/mines/cave_tunnel_01_lod0.glb"
+  ],
+  "mine_entrance_01": [
+    "/assets/models/mines/mine_entrance_01_lod0.glb"
+  ],
+  "mine_junction_01": [
+    "/assets/models/mines/mine_junction_01_lod0.glb"
+  ],
+  "mine_tunnel_01": [
+    "/assets/models/mines/mine_tunnel_01_lod0.glb"
+  ],
+  "cliff_01": [
+    "/assets/models/terrain/mountains/cliff_01_lod0.glb",
+    "/assets/models/terrain/mountains/cliff_01_lod1.glb",
+    "/assets/models/terrain/mountains/cliff_01_lod2.glb"
+  ],
+  "rocky_mountain_01": [
+    "/assets/models/terrain/mountains/rocky_mountain_01_lod0.glb",
+    "/assets/models/terrain/mountains/rocky_mountain_01_lod1.glb",
+    "/assets/models/terrain/mountains/rocky_mountain_01_lod2.glb"
+  ],
+  "pine_01": [
+    "/assets/models/trees/pine_01_lod0.glb",
+    "/assets/models/trees/pine_01_lod1.glb",
+    "/assets/models/trees/pine_01_lod2.glb"
+  ],
+  "spruce_01": [
+    "/assets/models/trees/spruce_01_lod0.glb",
+    "/assets/models/trees/spruce_01_lod1.glb",
+    "/assets/models/trees/spruce_01_lod2.glb"
+  ]
+}
