@@ -4,10 +4,7 @@ import type { AssetKind } from './AssetLibrary';
 
 type AssetManifest = Partial<Record<AssetKind, { scale?: number; yOffset?: number }>>;
 
-/**
- * Real GLB models override procedural meshes when a local manifest lists
- * them. No network requests for nonexistent files. All models are optional.
- */
+/** Replace procedural visuals without changing the gameplay collision root. */
 export class WorldModelOverrides {
   private readonly library = new AssetLibrary();
   private manifest: AssetManifest = {};
@@ -35,11 +32,33 @@ export class WorldModelOverrides {
     const scale = config.scale ?? targetHeight / Math.max(.001, size.y);
     model.scale.setScalar(scale);
     model.position.y = (config.yOffset ?? 0) - box.min.y * scale;
-    // Preserve target as the gameplay collision/interaction root.
+
+    // Load one copy of each GLB; clones share geometries and textures.
+    // Align each LOD by its own bounding box to prevent visual jumps.
+    const lodModels: THREE.Group[] = [model];
+    if (kind === 'pine') {
+      for (const lodKind of ['pineLod1', 'pineLod2'] as const) {
+        const lod = await this.library.instantiate(lodKind);
+        if (!lod) break;
+        const lodBox = new THREE.Box3().setFromObject(lod);
+        if (lodBox.isEmpty()) break;
+        const lodSize = new THREE.Vector3();
+        lodBox.getSize(lodSize);
+        const lodScale = config.scale ?? targetHeight / Math.max(.001, lodSize.y);
+        lod.scale.setScalar(lodScale);
+        lod.position.y = (config.yOffset ?? 0) - lodBox.min.y * lodScale;
+        lodModels.push(lod);
+      }
+    }
+    if (!target.parent) return false;
     for (const child of [...target.children]) {
       if (child.name !== 'resource-lod-proxy') target.remove(child);
     }
-    target.add(model);
+    lodModels.forEach((lod, index) => {
+      lod.name = 'resource-model-lod-' + index;
+      lod.visible = index === 0;
+      target.add(lod);
+    });
     return true;
   }
 }
