@@ -33,7 +33,7 @@ function fractal(x: number, z: number) {
  * Deterministic continuous height field. The central camp is flat for
  * construction; forest ridges rise beyond it. Beach falls into the sea.
  */
-export function terrainHeight(x: number, z: number): number {
+function naturalTerrainHeight(x: number, z: number): number {
   const r = Math.hypot(x, z);
   const camp = smooth(r, 17, 37);
   const forest = smooth(r, 24, 56);
@@ -44,6 +44,26 @@ export function terrainHeight(x: number, z: number): number {
   const height = camp * (forest * ridge + (1 - forest) * .45)
     + fine * .24 * camp;
   return height * shore - smooth(r, 97, 105) * 1.6;
+}
+
+// Flat pads follow the 6m modular kits. Blend their edges into the island
+// so the passage floors are not buried by the procedural heightfield.
+const passageSites = [
+  { x: 53, z: -34, count: 3 },
+  { x: -55, z: 45, count: 2 },
+];
+export function terrainHeight(x: number, z: number): number {
+  let result = naturalTerrainHeight(x, z);
+  for (const site of passageSites) {
+    const centerZ = site.z - (site.count - 1) * 3;
+    const halfLength = site.count * 3;
+    const dx = Math.abs(x - site.x);
+    const dz = Math.abs(z - centerZ);
+    const distance = Math.max(dx - 3.5, dz - halfLength);
+    const blend = 1 - smooth(distance, 0, 4);
+    if (blend > 0) result = THREE.MathUtils.lerp(result, naturalTerrainHeight(site.x, site.z), blend);
+  }
+  return result;
 }
 
 export function terrainNormal(x: number, z: number) {
