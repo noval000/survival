@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export type AssetKind =
-  | 'pine' | 'spruce' | 'oak' | 'boulder' | 'log'
+  | 'pine' | 'pineLod1' | 'pineLod2' | 'spruce' | 'oak' | 'boulder' | 'log'
   | 'axe' | 'pickaxe' | 'survivor';
 
 const assetPaths: Record<AssetKind, string> = {
-  pine: '/assets/models/trees/pine_01.glb',
+  pine: '/assets/models/trees/pine_01_lod0.glb',
+  pineLod1: '/assets/models/trees/pine_01_lod1.glb',
+  pineLod2: '/assets/models/trees/pine_01_lod2.glb',
   spruce: '/assets/models/spruce.glb',
   oak: '/assets/models/oak.glb',
   boulder: '/assets/models/boulder.glb',
@@ -18,11 +20,7 @@ const assetPaths: Record<AssetKind, string> = {
 
 type CachedAsset = { scene: THREE.Group; animations: THREE.AnimationClip[] };
 
-/**
- * Optional GLB asset pipeline. Missing models resolve to null so that the
- * procedural fallback world remains playable. Models must be licensed and
- * placed in public/assets/models; no remote hotlinking or implicit downloads.
- */
+/** Local GLB assets are optional; procedural meshes remain the fallback. */
 export class AssetLibrary {
   private readonly loader = new GLTFLoader();
   private readonly cache = new Map<AssetKind, Promise<CachedAsset | null>>();

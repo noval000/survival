@@ -8,15 +8,12 @@ const bark = new THREE.MeshStandardMaterial({ color: 0x65513d, roughness: 1 });
 const leaves = new THREE.MeshStandardMaterial({ color: 0x3b6243, roughness: 1 });
 const granite = new THREE.MeshStandardMaterial({ color: 0x868b83, roughness: 1 });
 
-/**
- * Distant harvestables are 1-2 cheap meshes; detailed geometry only exists
- * on screen near the player. All proxy geometries/materials are shared.
- */
+/** Switch only visible meshes; cached LOD geometries are shared across trees. */
 export class ResourceLOD {
   private readonly entries: {
     node: Harvestable;
     proxy: THREE.Group;
-    isNear: boolean;
+    level: number;
   }[] = [];
   private elapsed = 0;
 
@@ -37,10 +34,7 @@ export class ResourceLOD {
     proxy.name = 'resource-lod-proxy';
     proxy.visible = false;
     node.mesh.add(proxy);
-    this.entries.push({
-      node, proxy,
-      isNear: true,
-    });
+    this.entries.push({ node, proxy, level: 0 });
   }
 
   unregister(node: Harvestable) {
@@ -53,13 +47,26 @@ export class ResourceLOD {
     if (this.elapsed < .35) return;
     this.elapsed = 0;
     for (const entry of this.entries) {
-      const distance = entry.node.mesh.position.distanceToSquared(camera);
-      const threshold = entry.node.kind === 'tree' ? 22 : 27;
-      const near = distance < threshold * threshold;
-      if (near === entry.isNear) continue;
-      entry.isNear = near;
-      entry.proxy.visible = !near;
-      for (const child of entry.node.mesh.children) if (child !== entry.proxy) child.visible = near;
+      const distanceSq = entry.node.mesh.position.distanceToSquared(camera);
+      const lods = [0, 1, 2].map(index =>
+        entry.node.mesh.getObjectByName('resource-model-lod-' + index));
+      const hasFullLods = entry.node.kind === 'tree' && lods.every(Boolean);
+      // Hysteresis prevents rapid switching at distance boundaries.
+      const thresholds = hasFullLods ? [10, 25, 50] :
+        [entry.node.kind === 'tree' ? 22 : 27];
+      let level = entry.level;
+      while (level < thresholds.length && distanceSq > (thresholds[level] + 2) ** 2) level++;
+      while (level > 0 && distanceSq < (thresholds[level - 1] - 2) ** 2) level--;
+      entry.level = level;
+
+      entry.proxy.visible = level === thresholds.length;
+      if (hasFullLods) {
+        lods.forEach((lod, index) => { if (lod) lod.visible = level === index; });
+      } else {
+        for (const child of entry.node.mesh.children) {
+          if (child !== entry.proxy) child.visible = level === 0;
+        }
+      }
     }
   }
 }
