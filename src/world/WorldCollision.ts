@@ -5,12 +5,12 @@ import * as THREE from 'three';
  * tunnels remain passable rather than being blocked by bounding boxes.
  */
 export class WorldCollision {
-  private readonly roots = new Set<THREE.Object3D>();
+  private readonly roots = new Map<THREE.Object3D, THREE.Box3>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly direction = new THREE.Vector3();
   private readonly origin = new THREE.Vector3();
 
-  add(root: THREE.Object3D) { this.roots.add(root); }
+  add(root: THREE.Object3D) { root.updateWorldMatrix(true, true); this.roots.set(root, new THREE.Box3().setFromObject(root)); }
   remove(root: THREE.Object3D) { this.roots.delete(root); }
 
   canMove(from: THREE.Vector3, x: number, z: number): boolean {
@@ -25,8 +25,9 @@ export class WorldCollision {
       this.raycaster.set(this.origin, this.direction);
       this.raycaster.near = 0;
       this.raycaster.far = length + 0.48;
-      for (const root of this.roots) {
+      for (const [root, bounds] of this.roots) {
         if (!root.parent) { this.roots.delete(root); continue; }
+        if (bounds.distanceToPoint(this.origin) > length + 0.5) continue;
         const hits = this.raycaster.intersectObject(root, true);
         if (hits.length) return false;
       }
