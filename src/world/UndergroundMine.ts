@@ -126,7 +126,7 @@ export function createUndergroundMine(scene: THREE.Scene) {
     const floorY = (floor0 + floor1) / 2;
     const segmentLength = d1 - d0 + 0.025;
     const z = MINE_ENTRANCE_Z - mid;
-    for (const side of [-1, 1]) {
+    if (mid < 17) for (const side of [-1, 1]) {
       // Five shallow display alcoves reveal the original Meshy pieces
       // without placing their unverified geometry across the walking lane.
       const alcoves = [
@@ -142,28 +142,28 @@ export function createUndergroundMine(scene: THREE.Scene) {
     }
     // At the portal the player sees an open entrance. Begin the ceiling
     // farther down the decline, below the surface instead of above ground.
-    if (mid >= 8) {
+    if (mid >= 8 && mid < 17) {
       makeBox(MINE_HALF_WIDTH * 2 + 0.9, 0.35, segmentLength,
         rockWall, MINE_X, floorY + 3.12, z);
     }
   }
 
   // Supports and rails are visuals, not movement colliders.
-  for (let d = 4; d <= MINE_LENGTH; d += 4) {
+  for (let d = 4; d < 17; d += 4) {
     const y = mineFloorAtDistance(d);
     const z = MINE_ENTRANCE_Z - d;
     makeBox(.25, 3.2, .3, timber, MINE_X - 1.48, y + 1.6, z);
     makeBox(.25, 3.2, .3, timber, MINE_X + 1.48, y + 1.6, z);
     makeBox(3.2, .27, .35, timber, MINE_X, y + 3.13, z);
   }
-  for (let d = 17; d < MINE_LENGTH; d += 1.2) {
+  for (let d = MINE_LENGTH + 1; d < MINE_LENGTH; d += 1.2) {
     const y = mineFloorAtDistance(d);
     const z = MINE_ENTRANCE_Z - d;
     makeBox(1.55, .1, .18, timber, MINE_X, y + .07, z);
   }
   for (const offset of [-.55, .55]) {
     // Short rail pieces follow the slope instead of floating at one height.
-    for (let d = 17; d < MINE_LENGTH; d += 1) {
+    for (let d = MINE_LENGTH + 1; d < MINE_LENGTH; d += 1) {
       const end = Math.min(d + 1, MINE_LENGTH);
       const mid = (d + end) / 2;
       const y0 = mineFloorAtDistance(d);
