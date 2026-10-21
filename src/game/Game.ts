@@ -3,7 +3,7 @@ import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
 import { Footsteps } from '../graphics/Footsteps';
 import { SurvivalVitals } from './SurvivalVitals';
 import { terrainHeight, terrainSlope } from '../world/Terrain';
-import { mineFloorHeight } from '../world/UndergroundMine';
+import { mineFloorHeight, mineAllowsMovement } from '../world/UndergroundMine';
 import * as THREE from 'three';
 import { createEnvironment } from '../world/Environment';
 import { placement, createGhost } from '../building/Placement';
@@ -123,10 +123,10 @@ const nextZ=player.position.z+direction.z*dt*((keys.has('ShiftLeft')||touch.spri
 const nextHeight=mineFloorHeight(nextX,nextZ) ?? terrainHeight(nextX,nextZ);
 const climb=nextHeight-(mineFloorHeight(player.position.x,player.position.z) ?? terrainHeight(player.position.x,player.position.z));
 if((mineFloorHeight(nextX,nextZ)!==null||terrainSlope(nextX,nextZ)<.83)&&climb<dt*7){
-  if(worldCollision.canMove(player.position,nextX,nextZ)) {player.position.x=nextX;player.position.z=nextZ;}
+  if(worldCollision.canMove(player.position,nextX,nextZ) && mineAllowsMovement(player.position.x,player.position.z,nextX,nextZ)) {player.position.x=nextX;player.position.z=nextZ;}
   else {
-    if(worldCollision.canMove(player.position,nextX,player.position.z)) player.position.x=nextX;
-    if(worldCollision.canMove(player.position,player.position.x,nextZ)) player.position.z=nextZ;
+    if(worldCollision.canMove(player.position,nextX,player.position.z) && mineAllowsMovement(player.position.x,player.position.z,nextX,player.position.z)) player.position.x=nextX;
+    if(worldCollision.canMove(player.position,player.position.x,nextZ) && mineAllowsMovement(player.position.x,player.position.z,player.position.x,nextZ)) player.position.z=nextZ;
   }
 }
 }animateCharacter(dt,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());
