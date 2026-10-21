@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { terrainHeight } from './Terrain';
-import { createUndergroundMine } from './UndergroundMine';
+import { createUndergroundMine, mineFloorAtDistance } from './UndergroundMine';
 
 // Generated before dev/build from the actual GLB files.
 type Model = { name: string; levels: string[] };
@@ -160,14 +160,23 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
 
   // Preserve the proven walkable ramp and collision-free central aisle.
   createUndergroundMine(scene);
-  // Do not draw unverified closed Meshy mine pieces across the walkable
-  // aisle. Their raw meshes contain solid walls and debris at arbitrary
-  // pivots, so scaling them to a corridor creates visible blockages.
-  // Keep them registered for a later mesh-port audit and modular reassembly.
-  console.info('Mine GLBs pending portal/mesh audit:', [
-    'mine_entrance_01', 'mine_decline_01', 'mine_tunnel_01',
-    'mine_junction_01', 'mine_corner_01',
-  ].filter(hasWorldModel));
+  // Restore the Meshy assets as geological set dressing OUTSIDE the
+  // navigable aisle. Their raw meshes have not been verified as open tunnels,
+  // so they must never become the navigation floor or block the central path.
+  // Each side exhibit is bounded and grounded at the matching ramp elevation.
+  const mineDecorations = [
+    { name: 'mine_entrance_01', d: 1, side: -1 },
+    { name: 'mine_decline_01', d: 11, side: 1 },
+    { name: 'mine_tunnel_01', d: 21, side: -1 },
+    { name: 'mine_junction_01', d: 31, side: 1 },
+    { name: 'mine_corner_01', d: 41, side: -1 },
+  ] as const;
+  await Promise.all(mineDecorations.filter(item => hasWorldModel(item.name)).map(async item => {
+    const x = 53 + item.side * 4.6;
+    const z = -32 - item.d;
+    const y = mineFloorAtDistance(item.d);
+    await assets.placeMineDecoration(scene, item.name, x, y, z, 2.5, 3.0, 3.8);
+  }));
   // Cave models remain surface previews, separate from the mine.
   for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
     if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
