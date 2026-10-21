@@ -117,17 +117,18 @@ export function createTerrain(
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Terrain cap follows the island height, but stays above the mine roof.
-  // Start 3m after the portal so the entrance remains visibly open.
-  const capGeo = new THREE.PlaneGeometry(5.6, 43, 8, 86);
+  // Cover only the deep section. The entrance and descending ramp stay open,
+  // while the cover follows natural ground instead of forming a giant wedge.
+  const capStart = 13;
+  const capEnd = 46.5;
+  const capGeo = new THREE.PlaneGeometry(5.6, capEnd - capStart, 8, 70);
   capGeo.rotateX(-Math.PI / 2);
   const capPos = capGeo.getAttribute('position') as THREE.BufferAttribute;
+  const capCenterZ = -32 - (capStart + capEnd) / 2;
   for (let i = 0; i < capPos.count; i++) {
     const x = 53 + capPos.getX(i);
-    const z = -35 - (capPos.getZ(i) + 21.5);
-    const d = -32 - z;
-    const floor = terrainHeight(53, -32) - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
-    capPos.setY(i, Math.max(terrainHeight(x, z) + .15, floor + 4.3));
+    const z = capCenterZ + capPos.getZ(i);
+    capPos.setY(i, terrainHeight(x, z) + .025);
     capPos.setX(i, x);
     capPos.setZ(i, z);
   }
