@@ -104,6 +104,9 @@ export function createTerrain(
     const beachBlend = smooth(r, 83, 99);
     const cliffBlend = smooth(terrainSlope(x, z), .36, .72);
     tint.copy(grass).lerp(beach, beachBlend).lerp(stone, cliffBlend * .45);
+    // Exposed earth around the cut should read as rock, not green turf.
+    const exposedBank = along * (1 - smooth(lateral, MINE_HALF_WIDTH + 0.15, MINE_HALF_WIDTH + 3.0));
+    tint.lerp(stone, exposedBank * 0.85);
     const shade = .86 + hash(x * .6, z * .6) * .23;
     colors[i * 3] = tint.r * shade;
     colors[i * 3 + 1] = tint.g * shade;
