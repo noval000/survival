@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "predev": "node scripts/generate-world-registry.mjs",
-    "prebuild": "node scripts/generate-world-registry.mjs"
+    "prebuild": "node scripts/generate-world-registry.mjs",
+    "audit:models": "node scripts/audit-mine-glbs.mjs"
   },
   "dependencies": {
     "three": "^0.180.0"
