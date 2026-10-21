@@ -54,7 +54,6 @@ export function isMinePortalCutout(x: number, z: number) {
 export function createUndergroundMine(scene: THREE.Scene) {
   const root = new THREE.Group();
   root.name = 'WalkableUndergroundMine';
-  const stone = new THREE.MeshStandardMaterial({ color: 0x514d49, roughness: 1, side: THREE.DoubleSide });
   const earth = new THREE.MeshStandardMaterial({ color: 0x695643, roughness: 1, side: THREE.DoubleSide });
   const timber = new THREE.MeshStandardMaterial({ color: 0x493321, roughness: 1 });
   const metal = new THREE.MeshStandardMaterial({ color: 0x665f59, metalness: 0.6, roughness: 0.65 });
@@ -88,24 +87,6 @@ export function createUndergroundMine(scene: THREE.Scene) {
   const floor = new THREE.Mesh(floorGeo, earth);
   floor.receiveShadow = true;
   root.add(floor);
-
-  // Walls/roof follow the same slope as the navigation floor. Sections
-  // extend underground; no tunnel pieces are placed on the terrain surface.
-  for (let i = 0; i < steps; i++) {
-    const d0 = MINE_LENGTH * i / steps;
-    const d1 = MINE_LENGTH * (i + 1) / steps;
-    const mid = (d0 + d1) / 2;
-    const y0 = mineFloorAtDistance(d0);
-    const y1 = mineFloorAtDistance(d1);
-    const slope = Math.atan2(y0 - y1, d1 - d0);
-    const centerY = (y0 + y1) / 2;
-    const centerZ = MINE_ENTRANCE_Z - mid;
-    // Do not render placeholder box walls/roof over the real Meshy GLBs.
-    // The terrain cap and loaded GLB sections provide the visual enclosure.
-    void slope;
-    void centerY;
-    void centerZ;
-  }
 
   // Supports and rails are visuals, not movement colliders.
   for (let d = 0; d <= MINE_LENGTH; d += 4) {
