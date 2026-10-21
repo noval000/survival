@@ -87,7 +87,19 @@ if(n.hp<=0){
   destroyResource(n,scene,player.position);
  toast(`+${count} ${n.kind==='tree'?'дерева':'камня'}`);save();renderPanel()}else toast('Удар! Еще '+n.hp)}
 function place(){const p=placement(buildType,player.position,yaw,foundations,walls);if(!p.valid){toast(buildType==='wall'?'Стена должна крепиться к краю фундамента':'Здесь нельзя строить');return}if(buildType==='foundation'){if(resources.wood<10){toast('Нужно 10 дерева');return}resources.wood-=10;foundations.push({x:p.x,z:p.z});foundation(p.x,p.z)}else{if(resources.wood<6||resources.stone<2){toast('Нужно 6 дерева и 2 камня');return}resources.wood-=6;resources.stone-=2;walls.push({x:p.x,z:p.z,rot:p.rot});wall(p.x,p.z,p.rot)}toast('Постройка установлена');save();renderPanel()}
-function toggleStart(show:boolean){document.querySelector('#start')?.classList.toggle('hidden',!show)}document.querySelector('#play')?.addEventListener('click',()=>{if(touchDevice){started=true;toggleStart(false)}else renderer.domElement.requestPointerLock()});renderer.domElement.addEventListener('click',()=>{if(touchDevice)return;if(!locked){renderer.domElement.requestPointerLock();return}if(!openPanel)hit()});document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked)started=true;toggleStart(!started);if(locked){openPanel='';renderPanel()}});document.addEventListener('mousemove',e=>{if(!locked)return;yaw-=e.movementX*.0025;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.002,-.45,1.0)});
+function toggleStart(show:boolean){document.querySelector('#start')?.classList.toggle('hidden',!show)}document.querySelector('#play')?.addEventListener('click',()=>{if(touchDevice){started=true;toggleStart(false)}else renderer.domElement.requestPointerLock()});renderer.domElement.addEventListener('click',()=>{if(touchDevice)return;if(!locked){renderer.domElement.requestPointerLock();return}if(!openPanel)hit()});document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked)started=true;toggleStart(!started);if(locked){openPanel='';renderPanel()}});// Raw pointer-lock deltas may spike by hundreds/thousands of pixels when
+// the browser acquires focus or the mouse driver changes DPI. Bound each
+// event so a tiny physical movement cannot rotate the camera by 90/180 deg.
+let ignoreNextMouseMove = false;
+document.addEventListener('pointerlockchange', () => { ignoreNextMouseMove = true; });
+document.addEventListener('mousemove', e => {
+  if (!locked) return;
+  if (ignoreNextMouseMove) { ignoreNextMouseMove = false; return; }
+  const dx = THREE.MathUtils.clamp(e.movementX, -40, 40);
+  const dy = THREE.MathUtils.clamp(e.movementY, -40, 40);
+  yaw -= dx * 0.0014;
+  pitch = THREE.MathUtils.clamp(pitch + dy * 0.0012, -0.45, 1.0);
+});
 const touch=createTouchControls({
   look(dx,dy){yaw-=dx*.004;pitch=THREE.MathUtils.clamp(pitch+dy*.003,-.45,1)},
   attack(){if(!openPanel)hit()},
