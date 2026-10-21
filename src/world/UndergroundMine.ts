@@ -127,8 +127,18 @@ export function createUndergroundMine(scene: THREE.Scene) {
     const segmentLength = d1 - d0 + 0.025;
     const z = MINE_ENTRANCE_Z - mid;
     for (const side of [-1, 1]) {
-      makeBox(0.42, 3.05, segmentLength, rockWall,
-        MINE_X + side * (MINE_HALF_WIDTH + 0.21), floorY + 1.52, z);
+      // Five shallow display alcoves reveal the original Meshy pieces
+      // without placing their unverified geometry across the walking lane.
+      const alcoves = [
+        { d: 1, side: -1 }, { d: 11, side: 1 },
+        { d: 21, side: -1 }, { d: 31, side: 1 },
+        { d: 41, side: -1 },
+      ];
+      const alcove = alcoves.some(item => item.side === side && Math.abs(mid - item.d) < 1.7);
+      if (!alcove) {
+        makeBox(0.42, 3.05, segmentLength, rockWall,
+          MINE_X + side * (MINE_HALF_WIDTH + 0.21), floorY + 1.52, z);
+      }
     }
     // At the portal the player sees an open entrance. Begin the ceiling
     // farther down the decline, below the surface instead of above ground.
