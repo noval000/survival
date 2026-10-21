@@ -46,7 +46,7 @@ export class WorldAssets {
   // Decorative Meshy sections are fitted to side alcoves. Their raw meshes
   // are never used as collision geometry or as the navigation floor.
   async placeMineDecoration(scene: THREE.Scene, name: string, x: number, y: number, z: number,
-    maxWidth: number, maxHeight: number, maxDepth: number): Promise<THREE.Group | null> {
+    maxWidth: number, maxHeight: number, maxDepth: number, rotation = 0): Promise<THREE.Group | null> {
     const url = models.get(name)?.levels[0];
     if (!url) { console.warn('Missing mine model:', name); return null; }
     const group = await this.load(url);
@@ -73,6 +73,7 @@ export class WorldAssets {
     const root = new THREE.Group();
     root.name = 'MineDecoration_' + name;
     root.position.set(x, y, z);
+    root.rotation.y = rotation;
     root.add(group);
     scene.add(root);
     const worldBounds = new THREE.Box3().setFromObject(root);
@@ -84,7 +85,8 @@ export class WorldAssets {
     const dimensions = worldBounds.getSize(new THREE.Vector3());
     console.table({ name, originalX: size.x, originalY: size.y, originalZ: size.z,
       placedX: dimensions.x, placedY: dimensions.y, placedZ: dimensions.z,
-      worldX: root.position.x, worldY: root.position.y, worldZ: root.position.z });
+      worldX: root.position.x, worldY: root.position.y, worldZ: root.position.z,
+      yawDegrees: Math.round(THREE.MathUtils.radToDeg(rotation)) });
     console.info('Mine GLB decoration loaded:', name, { scale, originalSize: size.toArray() });
     return root;
   }
@@ -163,15 +165,16 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   const surfaceY = terrainHeight(53, -32);
   const floorAt = (d: number) => surfaceY - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
   const decorations = [
-    { name: 'mine_entrance_01', x: 53, d: 0, w: 4.8, h: 4.5, depth: 5.0 },
-    { name: 'mine_decline_01', x: 53, d: 8, w: 4.5, h: 3.8, depth: 9.0 },
-    { name: 'mine_tunnel_01', x: 53, d: 20, w: 4.5, h: 3.8, depth: 8.0 },
-    { name: 'mine_junction_01', x: 53, d: 31, w: 4.5, h: 3.8, depth: 8.0 },
-    { name: 'mine_corner_01', x: 53, d: 40, w: 4.5, h: 3.8, depth: 8.0 },
+    { name: 'mine_entrance_01', x: 53, d: 0, w: 4.8, h: 4.5, depth: 5.0, yaw: 0 },
+    { name: 'mine_decline_01', x: 53, d: 8, w: 4.5, h: 3.8, depth: 9.0, yaw: 0 },
+    { name: 'mine_tunnel_01', x: 53, d: 20, w: 4.5, h: 3.8, depth: 8.0, yaw: 0 },
+    { name: 'mine_junction_01', x: 53, d: 31, w: 4.5, h: 3.8, depth: 8.0, yaw: 0 },
+    { name: 'mine_corner_01', x: 53, d: 40, w: 4.5, h: 3.8, depth: 8.0, yaw: 0 },
   ];
   await Promise.all(decorations.map(item =>
     assets.placeMineDecoration(scene, item.name, item.x, floorAt(item.d),
-      -32 - item.d, item.w, item.h, item.depth)));
+      -32 - item.d, item.w, item.h, item.depth, item.yaw)));
+  console.info('Mine module transforms:', decorations);
   // Cave models remain surface previews, separate from the mine.
   for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
     if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
