@@ -76,6 +76,7 @@ export class WorldAssets {
     root.rotation.y = rotation;
     root.add(group);
     scene.add(root);
+    onCollider?.(root);
     const worldBounds = new THREE.Box3().setFromObject(root);
     const helper = new THREE.Box3Helper(worldBounds, 0x00ffcc);
     helper.visible = this.mineDebugVisible;
@@ -94,7 +95,7 @@ export class WorldAssets {
   // The verified straight tunnel runs along its local X axis. Rotate it to
   // the world's -Z mine axis, preserving uniform scale and its actual proportions.
   // Return the world-space length so the next module meets the previous end.
-  async placeStraightMineModule(scene: THREE.Scene, centerDistance: number): Promise<number | null> {
+  async placeStraightMineModule(scene: THREE.Scene, centerDistance: number, onCollider?: (object: THREE.Group) => void): Promise<number | null> {
     const url = models.get('mine_tunnel_01')?.levels[0];
     if (!url) return null;
     const model = await this.load(url);
@@ -206,12 +207,12 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   // Model length is measured at runtime, not guessed from accessor bounds.
   if (hasWorldModel('mine_tunnel_01')) {
     const firstCenter = 21;
-    const moduleLength = await assets.placeStraightMineModule(scene, firstCenter);
+    const moduleLength = await assets.placeStraightMineModule(scene, firstCenter, onCollider);
     if (moduleLength && Number.isFinite(moduleLength)) {
       for (let i = 1; i < 3; i++) {
         const center = firstCenter + moduleLength * i;
         if (center + moduleLength / 2 > 46) break;
-        await assets.placeStraightMineModule(scene, center);
+        await assets.placeStraightMineModule(scene, center, onCollider);
       }
     }
   }
