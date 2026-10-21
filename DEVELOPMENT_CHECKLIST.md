@@ -71,3 +71,5 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 
 - Recursive mine GLB discovery in geometry audit: `4bfa6b0`; local audit execution pending.
 - Mine navigation now blocks entry through side walls and limits entry to the front portal: `c7342e8`; build and gameplay validation pending.
+
+- Screenshot showed a blocked corridor and sky visible through missing walls. Removed unverified closed mine GLB sections from the route (`a2f452b`) and added slope-following stone enclosure (`e0c2e0b`). This is a temporary walkability fix, NOT finished modular GLB alignment; requires runtime check.
