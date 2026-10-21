@@ -93,33 +93,32 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
     place(site.name, site.x, site.z, site.h)));
 
-  // Original Meshy GLBs have unrelated dimensions and pivots.
-  // Normalize their height, align the lowest vertex with the terrain pad,
-  // and position each next section from the previous world-space bounds.
-  async function buildPassage(names: string[], x: number, z: number) {
-    const floorY = terrainHeight(x, z);
-    let previous: THREE.Group | null = null;
-    for (const name of names) {
-      if (!hasWorldModel(name)) continue;
-      const object = await assets.place(scene, name, x, z, 5);
-      if (!object) continue;
-      object.position.y = floorY;
-      object.updateWorldMatrix(true, true);
-      if (previous) {
-        const previousBounds = new THREE.Box3().setFromObject(previous);
-        const currentBounds = new THREE.Box3().setFromObject(object);
-        // Touch bounding-box ends with a small overlap to avoid visible seams.
-        object.position.z += previousBounds.min.z - currentBounds.max.z + 0.15;
-        object.updateWorldMatrix(true, true);
+  // Prototype route: keep Meshy GLBs as visuals, while navigation is handled
+  // by an explicit corridor floor rather than their decorative triangles.
+  const mineNames = ['mine_entrance_01', 'mine_decline_01', 'mine_tunnel_01', 'mine_junction_01', 'mine_corner_01'];
+  const mineX = 53, mineZ = -34;
+  const surfaceY = terrainHeight(mineX, mineZ);
+  const lengths = [4, 8, 6, 6, 6];
+  let distance = 0;
+  for (let i = 0; i < mineNames.length; i++) {
+    const name = mineNames[i];
+    const length = lengths[i];
+    const centerZ = mineZ - distance - length / 2;
+    const floorY = i === 0 ? surfaceY : i === 1 ? surfaceY - 1 : surfaceY - 2;
+    if (hasWorldModel(name)) {
+      const object = await assets.place(scene, name, mineX, centerZ, 3.5);
+      if (object) {
+        // Meshy geometry is visual only: its rails and irregular mesh must not
+        // block the test corridor.
+        object.position.y = floorY;
       }
-      onCollider?.(object);
-      previous = object;
     }
+    distance += length;
   }
-  await Promise.all([
-    buildPassage(['mine_entrance_01', 'mine_tunnel_01', 'mine_junction_01'], 53, -34),
-    buildPassage(['cave_entrance_01', 'cave_tunnel_01'], -55, 45),
-  ]);
+  // Cave assets remain surface previews until their own underground route exists.
+  for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
+    if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
+  }
   const trees = ['pine_01', 'spruce_01'].filter(hasWorldModel);
   if (!trees.length) return;
   const positions: {x:number;z:number}[] = [];
