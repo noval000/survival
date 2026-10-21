@@ -1,14 +1,26 @@
 // Run: node scripts/audit-mine-glbs.mjs
 // Reads glTF JSON chunks directly from binary GLBs; no rendering dependencies.
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { readdirSync } from 'node:fs';
 
 const names = ['mine_entrance_01', 'mine_decline_01', 'mine_tunnel_01',
   'mine_junction_01', 'mine_corner_01'];
+const root = resolve('public/assets/models');
+function findModel(directory, filename) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const candidate = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      const match = findModel(candidate, filename);
+      if (match) return match;
+    } else if (entry.name === filename) return candidate;
+  }
+  return null;
+}
 let failed = false;
 for (const name of names) {
-  const path = resolve('public/assets/models/mines', name + '_lod0.glb');
-  if (!existsSync(path)) {
+  const path = findModel(root, name + '_lod0.glb');
+  if (!path || !existsSync(path)) {
     console.error('MISSING', path);
     failed = true;
     continue;
