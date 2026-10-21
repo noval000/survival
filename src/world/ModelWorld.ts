@@ -76,7 +76,6 @@ export class WorldAssets {
     root.rotation.y = rotation;
     root.add(group);
     scene.add(root);
-    onCollider?.(root);
     const worldBounds = new THREE.Box3().setFromObject(root);
     const helper = new THREE.Box3Helper(worldBounds, 0x00ffcc);
     helper.visible = this.mineDebugVisible;
