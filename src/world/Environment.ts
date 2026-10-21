@@ -20,8 +20,9 @@ export function createEnvironment(scene: THREE.Scene, random: () => number) {
 
   createTerrain(scene, sand, grass);
 
-  // Large flat ocean: no dense tessellation or expensive transmission shader.
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), waterMaterial);
+  // Keep ocean outside the island footprint. A full water plane used to
+  // intersect the below-sea-level mine ramp and appear as cyan ground.
+  const sea = new THREE.Mesh(new THREE.RingGeometry(103, 600, 256, 1), waterMaterial);
   sea.rotation.x = -Math.PI / 2;
   sea.position.y = -0.17;
   terrain.add(sea);
