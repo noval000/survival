@@ -98,11 +98,6 @@ export function createUndergroundMine(scene: THREE.Scene) {
     makeBox(.09, .1, MINE_LENGTH - 17, metal, MINE_X + offset,
       mineFloorAtDistance(20) + .13, MINE_ENTRANCE_Z - (MINE_LENGTH + 17) / 2);
   }
-  // Rock face frames the opening. The center remains empty.
-  makeBox(.65, 4.3, 1.3, stone, MINE_X - 2, surface + 1.9, MINE_ENTRANCE_Z + .1);
-  makeBox(.65, 4.3, 1.3, stone, MINE_X + 2, surface + 1.9, MINE_ENTRANCE_Z + .1);
-  makeBox(4.7, .65, 1.3, stone, MINE_X, surface + 3.95, MINE_ENTRANCE_Z + .1);
-
   // Lighting is essential: otherwise a physically underground passage is black.
   for (const d of [7, 17, 28, 39]) {
     const light = new THREE.PointLight(0xffb66a, 8, 12, 2);
