@@ -41,5 +41,11 @@
     "/assets/models/trees/spruce_01_lod0.glb",
     "/assets/models/trees/spruce_01_lod1.glb",
     "/assets/models/trees/spruce_01_lod2.glb"
+  ],
+  "mine_decline_01": [
+    "/assets/models/mines/mine_decline_01_lod0.glb"
+  ],
+  "mine_corner_01": [
+    "/assets/models/mines/mine_corner_01_lod0.glb"
   ]
 }
