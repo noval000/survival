@@ -5,10 +5,10 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 ## 1. Foundation
 - [x] First-person camera implementation (visually confirmed by player)
 - [x] Automatic GLB registry generation (verified from user's dev log)
-- [x] Mine GLB bounding-box debug (F8, code committed; browser validation pending)
+- [ ] Mine GLB bounding-box debug (F8, code committed; browser validation pending)
 - [ ] Repository architecture audit and inventory of implemented mechanics
 - [ ] Model registry/placement: pivot, orientation, dimensions, terrain alignment
-- [ ] GLB asset inspection: real meshes, openings, dimensions, local axes
+- [ ] GLB asset inspection: real meshes, openings, dimensions, local axes (audit script added; results and visual inspection pending)
 - [ ] Robust static and dynamic collision system with debug display
 - [ ] Prevent walking through trees, rocks, walls, and structures
 - [ ] Mine entrance matched to actual mesh and terrain
@@ -60,3 +60,6 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 - Mine bounds debug: `dce4fd5`; requires runtime validation.
 - Mine aisle constraints: `99b5340`, `f231f1d`; requires build and runtime validation.
 - Earlier mine screenshots showed procedural portal and terrain intersections; full GLB alignment NOT verified.
+
+- GLB file structure audit added: `fecfe84`, run `node scripts/audit-mine-glbs.mjs`. Reports mesh/primitive counts and raw accessor dimensions; not equivalent to checking mesh openings or transforms.
+- Current phase remains foundation. Do not mark mine or collisions complete without a successful build and playthrough.
