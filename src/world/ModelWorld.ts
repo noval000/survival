@@ -160,21 +160,14 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
 
   // Preserve the proven walkable ramp and collision-free central aisle.
   createUndergroundMine(scene);
-  // Fit each original GLB to a full-size corridor section.
-  // Collision remains controlled by the independent navigation floor.
-  const surfaceY = terrainHeight(53, -32);
-  const floorAt = (d: number) => surfaceY - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
-  const decorations = [
-    { name: 'mine_entrance_01', x: 53, d: 0, w: 4.8, h: 4.5, depth: 5.0, yaw: 0 },
-    { name: 'mine_decline_01', x: 53, d: 8, w: 4.5, h: 3.8, depth: 9.0, yaw: 0 },
-    { name: 'mine_tunnel_01', x: 53, d: 20, w: 4.5, h: 3.8, depth: 8.0, yaw: 0 },
-    { name: 'mine_junction_01', x: 53, d: 31, w: 4.5, h: 3.8, depth: 8.0, yaw: 0 },
-    { name: 'mine_corner_01', x: 53, d: 40, w: 4.5, h: 3.8, depth: 8.0, yaw: 0 },
-  ];
-  await Promise.all(decorations.map(item =>
-    assets.placeMineDecoration(scene, item.name, item.x, floorAt(item.d),
-      -32 - item.d, item.w, item.h, item.depth, item.yaw)));
-  console.info('Mine module transforms:', decorations);
+  // Do not draw unverified closed Meshy mine pieces across the walkable
+  // aisle. Their raw meshes contain solid walls and debris at arbitrary
+  // pivots, so scaling them to a corridor creates visible blockages.
+  // Keep them registered for a later mesh-port audit and modular reassembly.
+  console.info('Mine GLBs pending portal/mesh audit:', [
+    'mine_entrance_01', 'mine_decline_01', 'mine_tunnel_01',
+    'mine_junction_01', 'mine_corner_01',
+  ].filter(hasWorldModel));
   // Cave models remain surface previews, separate from the mine.
   for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
     if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
