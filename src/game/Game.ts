@@ -3,7 +3,7 @@ import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
 import { Footsteps } from '../graphics/Footsteps';
 import { SurvivalVitals } from './SurvivalVitals';
 import { terrainHeight, terrainSlope } from '../world/Terrain';
-import { mineFloorHeight, mineAllowsMovement } from '../world/UndergroundMine';
+import { mineFloorHeight, mineAllowsMovement, mineFloorAtDistance } from '../world/UndergroundMine';
 import * as THREE from 'three';
 import { createEnvironment } from '../world/Environment';
 import { placement, createGhost } from '../building/Placement';
@@ -20,7 +20,7 @@ import { applyQuality, defaultQuality } from '../graphics/Quality';
 import type { Quality } from '../graphics/Quality';
 
 type Node = Harvestable;
-type Save={wood:number;stone:number;walls:{x:number;z:number;rot:number}[];foundations:{x:number;z:number}[]};
+type Save={wood:number;stone:number;coal?:number;walls:{x:number;z:number;rot:number}[];foundations:{x:number;z:number}[]};
 const app=document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML=`<div id="hud"><div class="top"><div class="brand">ISLAND <span>//</span> SURVIVAL</div><div class="pill">ALPHA 0.3 · ОДИНОЧНЫЙ МИР</div></div><div class="help"><b>W A S D</b> — движение<br><b>Мышь</b> — осмотр<br><b>ЛКМ</b> — добывать ресурс<br><b>1</b> — топор · <b>2</b> — кирка<br><b>I</b> — инвентарь · <b>B</b> — стройка<br><b>E</b> — построить · <b>ESC</b> — курсор</div><div class="crosshair">+</div><div id="prompt" class="prompt">Найдите дерево или камень</div><div id="toast" class="toast"></div><div class="stats"><div class="stat"><small>ЗДОРОВЬЕ <span id="healthNum">100</span></small><div class="track"><div class="fill" style="width:100%"></div></div></div><div class="stat"><small>ВОДА <span id="waterNum">100</span></small><div class="track"><div id="waterBar" class="fill" style="width:100%"></div></div></div><div class="stat"><small>ЕДА <span id="foodNum">100</span></small><div class="track"><div id="foodBar" class="fill" style="width:100%"></div></div></div></div><div class="right"><div id="tool1" class="slot active">🪓<small>1 · ТОПОР</small></div><div id="tool2" class="slot">⛏️<small>2 · КИРКА</small></div><div id="buildSlot" class="slot">🏠<small>B · СТРОИТЬ</small></div></div><div id="panel" class="panel hidden"></div></div><div id="start"><div class="intro"><div class="brand">SURVIVAL SANDBOX · PROTOTYPE</div><h1>ISLAND</h1><p>Исследуйте остров. Рубите деревья, добывайте камень, стройте собственную базу. Ваш прогресс сохраняется в браузере.</p><button id="play" class="btn">НАЧАТЬ ВЫЖИВАНИЕ →</button><p style="font-size:12px">Для управления нужен компьютер с клавиатурой и мышью.</p></div></div>`;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91c4d3);scene.fog=new THREE.FogExp2(0x91c4d3,.007);
@@ -55,10 +55,24 @@ function animateCharacter(dt:number,moving:boolean,running:boolean){
 const nodes:Node[]=[];
 const worldCollision = new WorldCollision();
 const harvestEffects = new HarvestEffects(scene);
+const coalMaterial = new THREE.MeshStandardMaterial({ color: 0x171b20, roughness: 0.92, metalness: 0.08 });
+const coalGeometry = new THREE.DodecahedronGeometry(0.6, 1);
+const coalNodes: THREE.Mesh[] = [];
+// Deterministic mine deposits. Each is an interactable ore node, not scenery.
+for (const d of [22, 30, 38, 43]) {
+  const ore = new THREE.Mesh(coalGeometry, coalMaterial);
+  ore.name = 'CoalDeposit';
+  ore.scale.set(1.1, 1.3, 0.8);
+  ore.position.set(53 + (d % 2 ? -0.85 : 0.85), mineFloorAtDistance(d) + 0.65, -32 - d);
+  ore.castShadow = true;
+  scene.add(ore);
+  coalNodes.push(ore);
+}
+
 void populateModelWorld(scene,rand,mesh=>{
   nodes.push({kind:'tree',mesh,hp:5,maxHp:5});
 }, object => worldCollision.add(object));
-const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
+const saved=(()=>{try{return JSON.parse(localStorage.getItem('island-save-v1')||'null') as Save|null}catch{return null}})();let resources={wood:saved?.wood??0,stone:saved?.stone??0,coal:saved?.coal??0};let foundations=saved?.foundations??[];let walls=saved?.walls??[];
 function foundation(x:number,z:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,.32,4),building);m.position.set(x,.16,z);m.receiveShadow=true;m.castShadow=true;scene.add(m)}function wall(x:number,z:number,rot:number){const m=new THREE.Mesh(new THREE.BoxGeometry(4,3,.25),building);m.position.set(x,1.65,z);m.rotation.y=rot;m.castShadow=true;scene.add(m)}foundations.forEach(v=>foundation(v.x,v.z));walls.forEach(v=>wall(v.x,v.z,v.rot));
 function save(){localStorage.setItem('island-save-v1',JSON.stringify({...resources,foundations,walls}))}let toastTimeout=0;function toast(msg:string){const el=document.querySelector<HTMLElement>('#toast')!;el.textContent=msg;el.classList.add('show');clearTimeout(toastTimeout);toastTimeout=window.setTimeout(()=>el.classList.remove('show'),2300)}
 const ghost=createGhost(scene);
@@ -66,7 +80,7 @@ const touchDevice=matchMedia('(pointer: coarse)').matches;
 const panel=document.querySelector<HTMLElement>('#panel')!;let openPanel='' ;let tool=1;let buildMode=false;let buildType:'foundation'|'wall'='foundation';
 type Item={id:string;label:string;icon:string;count:number};
 const inventory:Item[]=[{id:'axe',label:'Топор',icon:'🪓',count:1},{id:'pickaxe',label:'Кирка',icon:'⛏️',count:1}];
-function inventoryItems(){return [...inventory,{id:'wood',label:'Древесина',icon:'🪵',count:resources.wood},{id:'stone',label:'Камень',icon:'🪨',count:resources.stone}].filter(i=>i.count>0)}
+function inventoryItems(){return [...inventory,{id:'wood',label:'Древесина',icon:'🪵',count:resources.wood},{id:'stone',label:'Камень',icon:'🪨',count:resources.stone},{id:'coal',label:'Уголь',icon:'◆',count:resources.coal}].filter(i=>i.count>0)}
 let selectedSlot=0;
 function renderPanel(){if(!openPanel){panel.classList.add('hidden');panel.classList.remove('fullscreen');return}panel.classList.remove('hidden');panel.classList.toggle('fullscreen',openPanel==='inventory');
 if(openPanel==='inventory'){
@@ -77,7 +91,33 @@ panel.querySelector('#closeBtn')?.addEventListener('click',()=>{openPanel='';ren
 function updateSlots(){document.querySelector('#tool1')?.classList.toggle('active',!buildMode&&tool===1);document.querySelector('#tool2')?.classList.toggle('active',!buildMode&&tool===2);document.querySelector('#buildSlot')?.classList.toggle('active',buildMode)}
 let yaw=0,pitch=.25,locked=false,started=false;const keys=new Set<string>();
 function target(){let best:Node|null=null,dist=4.5;for(const n of nodes){const d=player.position.distanceTo(n.mesh.position);if(d<dist){best=n;dist=d}}return best}
-function hit(){if(!buildMode&&swingTime>0)return;if(!buildMode){if(!survivor.attack())return;swingTime=.48;}if(buildMode){place();return}const n=target();if(!n){toast('Подойдите ближе к дереву');return}if((n.kind==='tree'&&tool!==1)||(n.kind==='rock'&&tool!==2)){toast(n.kind==='tree'?'Нужен топор (1)':'Нужна кирка (2)');return}n.hp--;
+function nearestCoal(): THREE.Mesh | null {
+  let closest: THREE.Mesh | null = null;
+  let distance = 3.2;
+  for (const ore of coalNodes) {
+    const d = player.position.distanceTo(ore.position);
+    if (d < distance) { closest = ore; distance = d; }
+  }
+  return closest;
+}
+const coalDurability = new Map<THREE.Mesh, number>();
+function hit(){if(!buildMode&&swingTime>0)return;if(!buildMode){if(!survivor.attack())return;swingTime=.48;}if(buildMode){place();return}const ore = nearestCoal();
+if (ore) {
+  if (tool !== 2) { toast('Для угля нужна кирка (2)'); return; }
+  const hp = (coalDurability.get(ore) ?? 4) - 1;
+  if (hp > 0) { coalDurability.set(ore, hp); toast('Угольная жила: ещё ' + hp + ' ударов'); }
+  else {
+    coalNodes.splice(coalNodes.indexOf(ore), 1);
+    coalDurability.delete(ore);
+    scene.remove(ore);
+    resources.coal += 5;
+    toast('+5 угля');
+    save();
+    renderPanel();
+  }
+  return;
+}
+const n=target();if(!n){toast('Подойдите ближе к ресурсу');return}if((n.kind==='tree'&&tool!==1)||(n.kind==='rock'&&tool!==2)){toast(n.kind==='tree'?'Нужен топор (1)':'Нужна кирка (2)');return}n.hp--;
 harvestEffects.impact(n);
 if(n.hp<=0){
   const count=n.kind==='tree'?8:6;
@@ -163,5 +203,5 @@ document.querySelector<HTMLElement>('#foodBar')!.style.width=v.hunger+'%';
 document.querySelector<HTMLElement>('#waterBar')!.style.width=v.hydration+'%';
 document.querySelector<HTMLElement>('#staminaBar')!.style.width=v.stamina+'%';
 document.querySelector<HTMLElement>('#tempBar')!.style.width=THREE.MathUtils.clamp((v.temperature-32)*12,0,100)+'%';
-const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera);performance.update(dt)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+const p=placement(buildType,player.position,yaw,foundations,walls);ghost.update(buildType,p,buildMode);environment.oceanSurface.update(dt,sun);const n=target();const coalNearby=nearestCoal();document.querySelector('#prompt')!.textContent=buildMode?`Стройка: ${buildType==='foundation'?'фундамент':'стена'} · E — установить`:coalNearby?'УГОЛЬ · КИРКА (2) · ЛКМ — добыть':n?`${n.kind==='tree'?'ДЕРЕВО · ТОПОР':'КАМЕНЬ · КИРКА'} · ЛКМ — добыть`:'Исследуйте остров · I — рюкзак · B — стройка'}cameraRig.update(dt,player.position,yaw,pitch,keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')||Math.abs(touch.x)+Math.abs(touch.y)>.1,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint());environment.atmosphere.update(dt,player.position);renderer.render(scene,camera);performance.update(dt)}animate();window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 const qualityButton=document.createElement('button');qualityButton.id='quality-button';qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase();document.querySelector('#hud')?.append(qualityButton);qualityButton.addEventListener('click',()=>{quality=quality==='high'?'medium':quality==='medium'?'low':'high';applyQuality(renderer,sun,quality);performance.setQuality(quality);qualityButton.textContent='ГРАФИКА: '+quality.toUpperCase()});
