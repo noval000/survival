@@ -60,6 +60,8 @@ export class WorldAssets {
       maxDepth / Math.max(size.z, .001));
     // Center the GLB in its own safe decoration zone; never fill the route.
     group.scale.setScalar(scale);
+    // Align visual origin to the bounding-box footprint and lowest vertex.
+    // This is a geometric pivot normalization, not a guarantee of open portals.
     group.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
     group.traverse(node => {
       if (node instanceof THREE.Mesh) {
@@ -102,7 +104,10 @@ export class WorldAssets {
       box.getSize(size);
       const scale = modular ? 1 : height / Math.max(.001, size.y);
       group.scale.setScalar(scale);
-      group.position.y = modular ? 0 : -box.min.y * scale;
+      // Every LOD must share the same footprint origin and ground contact.
+      // Without this, trees and rocks visibly jump as LOD switches.
+      const center = box.getCenter(new THREE.Vector3());
+      group.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
       group.traverse(object => {
         if (object instanceof THREE.Mesh) {
           object.castShadow = true;
