@@ -111,42 +111,9 @@ export function createUndergroundMine(scene: THREE.Scene) {
   floor.receiveShadow = true;
   root.add(floor);
 
-  // Enclose the corridor with short, slope-following stone sections.
-  // Unlike the closed Meshy GLBs these never cross the central aisle.
-  const rockWall = new THREE.MeshStandardMaterial({
-    color: 0x504b45, roughness: 1, side: THREE.DoubleSide,
-  });
-  for (let i = 0; i < steps; i++) {
-    const d0 = MINE_LENGTH * i / steps;
-    const d1 = MINE_LENGTH * (i + 1) / steps;
-    const mid = (d0 + d1) / 2;
-    const floor0 = mineFloorAtDistance(d0);
-    const floor1 = mineFloorAtDistance(d1);
-    const floorY = (floor0 + floor1) / 2;
-    const segmentLength = d1 - d0 + 0.025;
-    const z = MINE_ENTRANCE_Z - mid;
-    if (mid < 17) for (const side of [-1, 1]) {
-      // Five shallow display alcoves reveal the original Meshy pieces
-      // without placing their unverified geometry across the walking lane.
-      const alcoves = [
-        { d: 1, side: -1 }, { d: 11, side: 1 },
-        { d: 21, side: -1 }, { d: 31, side: 1 },
-        { d: 41, side: -1 },
-      ];
-      const alcove = alcoves.some(item => item.side === side && Math.abs(mid - item.d) < 1.7);
-      if (!alcove) {
-        makeBox(0.42, 3.05, segmentLength, rockWall,
-          MINE_X + side * (MINE_HALF_WIDTH + 0.21), floorY + 1.52, z);
-      }
-    }
-    // At the portal the player sees an open entrance. Begin the ceiling
-    // farther down the decline, below the surface instead of above ground.
-    if (mid >= 8 && mid < 17) {
-      makeBox(MINE_HALF_WIDTH * 2 + 0.9, 0.35, segmentLength,
-        rockWall, MINE_X, floorY + 3.12, z);
-    }
-  }
-
+  // The terrain heightfield forms the excavation banks. Do not add
+  // tall rectangular walls or a flat ceiling over the surface entrance:
+  // these protruded several metres above the island in screenshots.
   // Supports and rails are visuals, not movement colliders.
   for (let d = 4; d < 17; d += 4) {
     const y = mineFloorAtDistance(d);
