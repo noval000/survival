@@ -149,7 +149,7 @@ export function createUndergroundMine(scene: THREE.Scene) {
   }
 
   // Supports and rails are visuals, not movement colliders.
-  for (let d = 0; d <= MINE_LENGTH; d += 4) {
+  for (let d = 4; d <= MINE_LENGTH; d += 4) {
     const y = mineFloorAtDistance(d);
     const z = MINE_ENTRANCE_Z - d;
     makeBox(.25, 3.2, .3, timber, MINE_X - 1.48, y + 1.6, z);
@@ -162,8 +162,16 @@ export function createUndergroundMine(scene: THREE.Scene) {
     makeBox(1.55, .1, .18, timber, MINE_X, y + .07, z);
   }
   for (const offset of [-.55, .55]) {
-    makeBox(.09, .1, MINE_LENGTH - 17, metal, MINE_X + offset,
-      mineFloorAtDistance(20) + .13, MINE_ENTRANCE_Z - (MINE_LENGTH + 17) / 2);
+    // Short rail pieces follow the slope instead of floating at one height.
+    for (let d = 17; d < MINE_LENGTH; d += 1) {
+      const end = Math.min(d + 1, MINE_LENGTH);
+      const mid = (d + end) / 2;
+      const y0 = mineFloorAtDistance(d);
+      const y1 = mineFloorAtDistance(end);
+      const rail = makeBox(.09, .1, Math.hypot(end - d, y1 - y0), metal,
+        MINE_X + offset, (y0 + y1) / 2 + .13, MINE_ENTRANCE_Z - mid);
+      rail.rotation.x = -Math.atan2(y1 - y0, end - d);
+    }
   }
   // Lighting is essential: otherwise a physically underground passage is black.
   for (const d of [7, 17, 28, 39]) {
