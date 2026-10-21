@@ -19,6 +19,32 @@ export function mineFloorHeight(x: number, z: number): number | null {
   if (d < 0 || d > MINE_LENGTH || Math.abs(x - MINE_X) > MINE_HALF_WIDTH) return null;
   return mineFloorAtDistance(d);
 }
+/**
+ * Simple deterministic capsule-center constraint for the mine's central aisle.
+ * Prevents walking through side walls and the closed end while preserving
+ * free movement on the open terrain outside the portal.
+ */
+export function mineAllowsMovement(fromX: number, fromZ: number, toX: number, toZ: number): boolean {
+  const d0 = mineDistance(fromZ);
+  const d1 = mineDistance(toZ);
+  const inside = d0 >= 0 && d0 <= MINE_LENGTH &&
+    Math.abs(fromX - MINE_X) <= MINE_HALF_WIDTH;
+  const entering = d1 >= 0 && d1 <= MINE_LENGTH &&
+    Math.abs(toX - MINE_X) <= MINE_HALF_WIDTH;
+  if (!inside && !entering) {
+    // The portal is the only allowed crossing of the front mine boundary.
+    return true;
+  }
+  if (inside) {
+    const radius = .35;
+    if (Math.abs(toX - MINE_X) > MINE_HALF_WIDTH - radius) return false;
+    if (d1 > MINE_LENGTH - radius) return false;
+    // Exit through the open front portal only.
+    if (d1 < 0 && Math.abs(toX - MINE_X) > MINE_HALF_WIDTH - radius) return false;
+  }
+  return true;
+}
+
 export function isMinePortalCutout(x: number, z: number) {
   const d = mineDistance(z);
   // Only the first section is open to the sky; deeper sections are covered.
