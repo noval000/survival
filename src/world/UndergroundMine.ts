@@ -80,7 +80,6 @@ export function createUndergroundMine(scene: THREE.Scene) {
   root.name = 'WalkableUndergroundMine';
   const earth = new THREE.MeshStandardMaterial({ color: 0x695643, roughness: 1, side: THREE.DoubleSide });
   const timber = new THREE.MeshStandardMaterial({ color: 0x493321, roughness: 1 });
-  const metal = new THREE.MeshStandardMaterial({ color: 0x665f59, metalness: 0.6, roughness: 0.65 });
   const makeBox = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(x, y, z);
@@ -156,23 +155,7 @@ export function createUndergroundMine(scene: THREE.Scene) {
     makeBox(.25, 3.2, .3, timber, MINE_X + 1.48, y + 1.6, z);
     makeBox(3.2, .27, .35, timber, MINE_X, y + 3.13, z);
   }
-  for (let d = MINE_LENGTH + 1; d < MINE_LENGTH; d += 1.2) {
-    const y = mineFloorAtDistance(d);
-    const z = MINE_ENTRANCE_Z - d;
-    makeBox(1.55, .1, .18, timber, MINE_X, y + .07, z);
-  }
-  for (const offset of [-.55, .55]) {
-    // Short rail pieces follow the slope instead of floating at one height.
-    for (let d = MINE_LENGTH + 1; d < MINE_LENGTH; d += 1) {
-      const end = Math.min(d + 1, MINE_LENGTH);
-      const mid = (d + end) / 2;
-      const y0 = mineFloorAtDistance(d);
-      const y1 = mineFloorAtDistance(end);
-      const rail = makeBox(.09, .1, Math.hypot(end - d, y1 - y0), metal,
-        MINE_X + offset, (y0 + y1) / 2 + .13, MINE_ENTRANCE_Z - mid);
-      rail.rotation.x = -Math.atan2(y1 - y0, end - d);
-    }
-  }
+  // The flat section's sleepers and rails are provided by Meshy GLBs.
   // Lighting is essential: otherwise a physically underground passage is black.
   for (const d of [7, 17, 28, 39]) {
     const light = new THREE.PointLight(0xffb66a, 8, 12, 2);
