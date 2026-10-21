@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MINE_X, MINE_ENTRANCE_Z, MINE_LENGTH, MINE_HALF_WIDTH, mineFloorAtDistance } from './UndergroundMine';
 
 const ISLAND_RADIUS = 104;
 const clamp = THREE.MathUtils.clamp;
@@ -83,7 +84,14 @@ export function createTerrain(
     const r = Math.hypot(x, z);
     const edge = clamp((ISLAND_RADIUS - r) * 1.2, 0, 1);
     const y = terrainHeight(x, z);
-    positions.setY(i, y);
+    // Sculpt a continuous trench instead of deleting triangles and exposing water.
+    const d = MINE_ENTRANCE_Z - z;
+    const lateral = Math.abs(x - MINE_X);
+    const along = smooth(d, -1.5, 1.5) * (1 - smooth(d, MINE_LENGTH - 1.5, MINE_LENGTH + 1.5));
+    const across = 1 - smooth(lateral, MINE_HALF_WIDTH + 0.1, MINE_HALF_WIDTH + 2.1);
+    const excavation = along * across;
+    const trenchY = mineFloorAtDistance(Math.max(0, d)) - 0.08;
+    positions.setY(i, THREE.MathUtils.lerp(y, Math.min(y, trenchY), excavation));
     const beachBlend = smooth(r, 83, 99);
     const cliffBlend = smooth(terrainSlope(x, z), .36, .72);
     tint.copy(grass).lerp(beach, beachBlend).lerp(stone, cliffBlend * .45);
@@ -93,20 +101,6 @@ export function createTerrain(
     colors[i * 3 + 2] = tint.b * shade;
     if (r > radius) positions.setY(i, -1.8);
     else if (edge < 1) positions.setY(i, y * edge - 1.8 * (1 - edge));
-  }
-  // Excavate the entire corridor. A separate earth roof covers it, so
-  // terrain polygons cannot intersect the player or hide the tunnel.
-  const index = geometry.getIndex();
-  if (index) {
-    const kept: number[] = [];
-    for (let i = 0; i < index.count; i += 3) {
-      const a = index.getX(i), b = index.getX(i + 1), c = index.getX(i + 2);
-      const x = (positions.getX(a) + positions.getX(b) + positions.getX(c)) / 3;
-      const z = (positions.getZ(a) + positions.getZ(b) + positions.getZ(c)) / 3;
-      const d = -32 - z;
-      if (!(Math.abs(x - 53) < 2.7 && d > -0.8 && d < 46.5)) kept.push(a, b, c);
-    }
-    geometry.setIndex(kept);
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
