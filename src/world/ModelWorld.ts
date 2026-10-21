@@ -20,6 +20,19 @@ export function availableWorldModels() { return [...models.keys()].filter(hasWor
 
 export class WorldAssets {
   private readonly loader = new GLTFLoader();
+  private readonly mineDebugHelpers: THREE.Box3Helper[] = [];
+  private mineDebugVisible = false;
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', event => {
+        if (event.code !== 'F8' || event.repeat) return;
+        event.preventDefault();
+        this.mineDebugVisible = !this.mineDebugVisible;
+        for (const helper of this.mineDebugHelpers) helper.visible = this.mineDebugVisible;
+        console.info('Mine GLB bounds:', this.mineDebugVisible ? 'ON' : 'OFF');
+      });
+    }
+  }
   private readonly cache = new Map<string, Promise<THREE.Group | null>>();
   private async load(url: string): Promise<THREE.Group | null> {
     let task = this.cache.get(url);
@@ -60,6 +73,16 @@ export class WorldAssets {
     root.position.set(x, y, z);
     root.add(group);
     scene.add(root);
+    const worldBounds = new THREE.Box3().setFromObject(root);
+    const helper = new THREE.Box3Helper(worldBounds, 0x00ffcc);
+    helper.visible = this.mineDebugVisible;
+    helper.name = 'DebugBounds_' + name;
+    scene.add(helper);
+    this.mineDebugHelpers.push(helper);
+    const dimensions = worldBounds.getSize(new THREE.Vector3());
+    console.table({ name, originalX: size.x, originalY: size.y, originalZ: size.z,
+      placedX: dimensions.x, placedY: dimensions.y, placedZ: dimensions.z,
+      worldX: root.position.x, worldY: root.position.y, worldZ: root.position.z });
     console.info('Mine GLB decoration loaded:', name, { scale, originalSize: size.toArray() });
     return root;
   }
