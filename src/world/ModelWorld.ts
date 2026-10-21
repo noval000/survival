@@ -30,6 +30,40 @@ export class WorldAssets {
     const original = await task;
     return original?.clone(true) ?? null;
   }
+  // Decorative Meshy sections are fitted to side alcoves. Their raw meshes
+  // are never used as collision geometry or as the navigation floor.
+  async placeMineDecoration(scene: THREE.Scene, name: string, x: number, y: number, z: number,
+    maxWidth: number, maxHeight: number, maxDepth: number): Promise<THREE.Group | null> {
+    const url = models.get(name)?.levels[0];
+    if (!url) { console.warn('Missing mine model:', name); return null; }
+    const group = await this.load(url);
+    if (!group) return null;
+    const bounds = new THREE.Box3().setFromObject(group);
+    if (bounds.isEmpty()) return null;
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = Math.min(maxWidth / Math.max(size.x, .001),
+      maxHeight / Math.max(size.y, .001),
+      maxDepth / Math.max(size.z, .001));
+    // Center the GLB in its own safe decoration zone; never fill the route.
+    group.scale.setScalar(scale);
+    group.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+    group.traverse(node => {
+      if (node instanceof THREE.Mesh) {
+        node.castShadow = false;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+    const root = new THREE.Group();
+    root.name = 'MineDecoration_' + name;
+    root.position.set(x, y, z);
+    root.add(group);
+    scene.add(root);
+    console.info('Mine GLB decoration loaded:', name, { scale, originalSize: size.toArray() });
+    return root;
+  }
+
   async place(scene: THREE.Scene, name: string, x: number, z: number, height: number, rotation = 0, modular = false): Promise<THREE.Group | null> {
     const config = models.get(name);
     if (!config?.levels[0]) return null;
@@ -94,17 +128,23 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   await Promise.all(sites.filter(site => hasWorldModel(site.name)).map(site =>
     place(site.name, site.x, site.z, site.h)));
 
-  // Meshy GLBs are not reliable walkable meshes: their closed ends,
-  // pivots and rails previously produced dead ends and blocked corridors.
-  // Keep the original assets in the registry, but use a single verified
-  // procedural interior until the GLBs are repaired in Blender.
+  // Preserve the proven walkable ramp and collision-free central aisle.
   createUndergroundMine(scene);
-  // Display the user's entrance GLB beside the usable portal, without
-  // allowing its unverified solid geometry to seal the passage.
-  if (hasWorldModel('mine_entrance_01')) {
-    const entrance = await assets.place(scene, 'mine_entrance_01', 57.5, -32, 4.5);
-    if (entrance) entrance.name = 'MineEntranceGLBPreview';
-  }
+  // All five original GLBs are loaded and shown as fitted side details.
+  // A model cannot close the passage because its X span stays outside
+  // the central 2.4m-wide walking aisle.
+  const surfaceY = terrainHeight(53, -32);
+  const floorAt = (d: number) => surfaceY - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
+  const decorations = [
+    { name: 'mine_entrance_01', x: 56.6, d: 0, w: 2.3, h: 4.0, depth: 4.0 },
+    { name: 'mine_decline_01', x: 54.9, d: 8, w: 1.1, h: 2.6, depth: 5.0 },
+    { name: 'mine_tunnel_01', x: 51.1, d: 20, w: 1.1, h: 2.6, depth: 5.0 },
+    { name: 'mine_junction_01', x: 54.9, d: 31, w: 1.1, h: 2.6, depth: 5.0 },
+    { name: 'mine_corner_01', x: 51.1, d: 40, w: 1.1, h: 2.6, depth: 5.0 },
+  ];
+  await Promise.all(decorations.map(item =>
+    assets.placeMineDecoration(scene, item.name, item.x, floorAt(item.d),
+      -32 - item.d, item.w, item.h, item.depth)));
   // Cave models remain surface previews, separate from the mine.
   for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
     if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
