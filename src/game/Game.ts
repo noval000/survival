@@ -43,6 +43,9 @@ const survivor=new Survivor();
 const footsteps=new Footsteps(scene);
 const player=survivor.root;
 scene.add(player);
+// The camera sits at eye height; hide the third-person body so the head
+// and face do not obstruct the first-person view.
+player.visible = false;
 player.position.set(0,0,8);
 let swingTime=0;
 function animateCharacter(dt:number,moving:boolean,running:boolean){
