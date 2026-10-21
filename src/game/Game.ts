@@ -2,7 +2,7 @@ import { PerformanceGovernor } from '../graphics/PerformanceGovernor';
 import { ThirdPersonCamera } from '../graphics/ThirdPersonCamera';
 import { Footsteps } from '../graphics/Footsteps';
 import { SurvivalVitals } from './SurvivalVitals';
-import { terrainHeight, terrainSlope } from '../world/Terrain';
+import { terrainHeight, terrainSlope, mineFloorHeight } from '../world/Terrain';
 import * as THREE from 'three';
 import { createEnvironment } from '../world/Environment';
 import { placement, createGhost } from '../building/Placement';
@@ -116,9 +116,9 @@ if((locked||touchDevice&&started)&&!openPanel){const forward=new THREE.Vector3(-
 const direction=move.normalize();
 const nextX=player.position.x+direction.x*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
 const nextZ=player.position.z+direction.z*dt*((keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint()?10:6);
-const nextHeight=terrainHeight(nextX,nextZ);
-const climb=nextHeight-terrainHeight(player.position.x,player.position.z);
-if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7){
+const nextHeight=mineFloorHeight(nextX,nextZ) ?? terrainHeight(nextX,nextZ);
+const climb=nextHeight-(mineFloorHeight(player.position.x,player.position.z) ?? terrainHeight(player.position.x,player.position.z));
+if((mineFloorHeight(nextX,nextZ)!==null||terrainSlope(nextX,nextZ)<.83)&&climb<dt*7){
   if(worldCollision.canMove(player.position,nextX,nextZ)) {player.position.x=nextX;player.position.z=nextZ;}
   else {
     if(worldCollision.canMove(player.position,nextX,player.position.z)) player.position.x=nextX;
@@ -129,7 +129,7 @@ if(terrainSlope(nextX,nextZ)<.83&&climb<dt*7){
 footsteps.update(dt,player.position,yaw,moving,(keys.has('ShiftLeft')||touch.sprint)&&vitals.canSprint(),grounded);if(keys.has('Space')&&grounded){verticalVelocity=6.3;grounded=false;}
 verticalVelocity-=18*dt;
 player.position.y+=verticalVelocity*dt;
-const groundY=terrainHeight(player.position.x,player.position.z);
+const groundY=mineFloorHeight(player.position.x,player.position.z) ?? terrainHeight(player.position.x,player.position.z);
 if(player.position.y<=groundY){player.position.y=groundY;verticalVelocity=0;grounded=true;}
 player.position.x=THREE.MathUtils.clamp(player.position.x,-98,98);player.position.z=THREE.MathUtils.clamp(player.position.z,-98,98);player.rotation.y=yaw;elapsed+=dt;const r=Math.hypot(player.position.x,player.position.z);
 const swimming=r>101&&player.position.y<.5;
