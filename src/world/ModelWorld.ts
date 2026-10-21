@@ -99,6 +99,12 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
   // Keep the original assets in the registry, but use a single verified
   // procedural interior until the GLBs are repaired in Blender.
   createUndergroundMine(scene);
+  // Display the user's entrance GLB beside the usable portal, without
+  // allowing its unverified solid geometry to seal the passage.
+  if (hasWorldModel('mine_entrance_01')) {
+    const entrance = await assets.place(scene, 'mine_entrance_01', 57.5, -32, 4.5);
+    if (entrance) entrance.name = 'MineEntranceGLBPreview';
+  }
   // Cave models remain surface previews, separate from the mine.
   for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
     if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
