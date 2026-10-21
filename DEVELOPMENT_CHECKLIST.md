@@ -66,3 +66,5 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 
 - Surface GLB LOD pivot normalization: `36117ba` (build/gameplay verification pending).
 - Removed unused procedural mine geometry loop: `dd121f9` (build verification pending).
+
+- Mine section yaw is now explicitly configurable and logged: `a8d7585`. Default yaw is zero until mesh openings are measured; visual validation pending.
