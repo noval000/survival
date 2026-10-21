@@ -75,3 +75,5 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 - Screenshot showed a blocked corridor and sky visible through missing walls. Removed unverified closed mine GLB sections from the route (`a2f452b`) and added slope-following stone enclosure (`e0c2e0b`). This is a temporary walkability fix, NOT finished modular GLB alignment; requires runtime check.
 
 - Restored five original mine GLBs as bounded decorations in side alcoves (`d22653b`, `4faccc5`). These are not connected tunnel modules, and alcove collision/rendering must be tested in browser before acceptance.
+
+- Terrain mine trench now deforms a continuous surface instead of deleting triangles (`0991cb7`), aiming to eliminate ocean-colored holes. First timber support moved deeper and rails follow the ramp (`f83d358`). Build and in-game validation pending; mesh alignment and physical collisions remain incomplete.
