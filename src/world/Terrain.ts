@@ -46,24 +46,18 @@ function naturalTerrainHeight(x: number, z: number): number {
   return height * shore - smooth(r, 97, 105) * 1.6;
 }
 
-// Flat pads follow the 6m modular kits. Blend their edges into the island
-// so the passage floors are not buried by the procedural heightfield.
-const passageSites = [
-  { x: 53, z: -34, count: 3 },
-  { x: -55, z: 45, count: 2 },
-];
+// Temporary walkable mine corridor. Surface entrance at z=-34;
+ // the decline descends 2m before the straight tunnel.
+export function mineFloorHeight(x: number, z: number): number | null {
+  const distance = -34 - z;
+  if (Math.abs(x - 53) > 1.35 || distance < 0 || distance > 30) return null;
+  const surface = naturalTerrainHeight(53, -34);
+  if (distance <= 4) return surface;
+  if (distance <= 12) return surface - (distance - 4) / 4;
+  return surface - 2;
+}
 export function terrainHeight(x: number, z: number): number {
-  let result = naturalTerrainHeight(x, z);
-  for (const site of passageSites) {
-    const centerZ = site.z - (site.count - 1) * 3;
-    const halfLength = site.count * 3;
-    const dx = Math.abs(x - site.x);
-    const dz = Math.abs(z - centerZ);
-    const distance = Math.max(dx - 3.5, dz - halfLength);
-    const blend = 1 - smooth(distance, 0, 4);
-    if (blend > 0) result = THREE.MathUtils.lerp(result, naturalTerrainHeight(site.x, site.z), blend);
-  }
-  return result;
+  return naturalTerrainHeight(x, z);
 }
 
 export function terrainNormal(x: number, z: number) {
@@ -110,6 +104,33 @@ export function createTerrain(
     if (r > radius) positions.setY(i, -1.8);
     else if (edge < 1) positions.setY(i, y * edge - 1.8 * (1 - edge));
   }
+  // Remove terrain triangles above the mine's underground corridor.
+  // The entrance is left open, while the rock outside the narrow route remains.
+  const index = geometry.getIndex();
+  if (index) {
+    const kept: number[] = [];
+    for (let i = 0; i < index.count; i += 3) {
+      const a = index.getX(i), b = index.getX(i + 1), c = index.getX(i + 2);
+      const x = (positions.getX(a) + positions.getX(b) + positions.getX(c)) / 3;
+      const z = (positions.getZ(a) + positions.getZ(b) + positions.getZ(c)) / 3;
+      const d = -34 - z;
+      if (!(Math.abs(x - 53) < 1.9 && d > 0 && d < 30)) kept.push(a, b, c);
+    }
+    geometry.setIndex(kept);
+  }
+  // An independent walkable floor prevents falling through the terrain opening.
+  const floorGeometry = new THREE.PlaneGeometry(2.7, 30, 6, 60);
+  floorGeometry.rotateX(-Math.PI / 2);
+  const floorPositions = floorGeometry.getAttribute('position') as THREE.BufferAttribute;
+  for (let i = 0; i < floorPositions.count; i++) {
+    const z = floorPositions.getZ(i) - 49;
+    floorPositions.setY(i, mineFloorHeight(53, z) ?? terrainHeight(53, z));
+  }
+  floorGeometry.computeVertexNormals();
+  const floor = new THREE.Mesh(floorGeometry, new THREE.MeshStandardMaterial({ color: 0x665646, roughness: 1, side: THREE.DoubleSide }));
+  floor.position.set(53, 0, -49);
+  floor.receiveShadow = true;
+  scene.add(floor);
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
   const groundMaterial = grassMaterial.clone();
