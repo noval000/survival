@@ -91,6 +91,47 @@ export class WorldAssets {
     return root;
   }
 
+  // The verified straight tunnel runs along its local X axis. Rotate it to
+  // the world's -Z mine axis, preserving uniform scale and its actual proportions.
+  // Return the world-space length so the next module meets the previous end.
+  async placeStraightMineModule(scene: THREE.Scene, centerDistance: number): Promise<number | null> {
+    const url = models.get('mine_tunnel_01')?.levels[0];
+    if (!url) return null;
+    const model = await this.load(url);
+    if (!model) return null;
+    const bounds = new THREE.Box3().setFromObject(model);
+    if (bounds.isEmpty()) return null;
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    // Local Z is the cross-section; local X is the tunnel's length.
+    const scale = 3.1 / Math.max(size.z, 0.001);
+    model.scale.setScalar(scale);
+    model.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+    model.traverse(node => {
+      if (node instanceof THREE.Mesh) {
+        node.castShadow = false;
+        node.receiveShadow = true;
+      }
+    });
+    const root = new THREE.Group();
+    root.name = 'WalkableMineMeshyStraight';
+    root.position.set(53, mineFloorAtDistance(centerDistance), -32 - centerDistance);
+    root.rotation.y = Math.PI / 2;
+    root.add(model);
+    scene.add(root);
+    const worldBounds = new THREE.Box3().setFromObject(root);
+    const helper = new THREE.Box3Helper(worldBounds, 0x00ffcc);
+    helper.name = 'MineModuleBounds';
+    helper.visible = this.mineDebugVisible;
+    scene.add(helper);
+    this.mineDebugHelpers.push(helper);
+    console.info('Mine straight module', {
+      centerDistance, scale, length: size.x * scale,
+      worldSize: worldBounds.getSize(new THREE.Vector3()).toArray(),
+    });
+    return size.x * scale;
+  }
+
   async place(scene: THREE.Scene, name: string, x: number, z: number, height: number, rotation = 0, modular = false): Promise<THREE.Group | null> {
     const config = models.get(name);
     if (!config?.levels[0]) return null;
@@ -160,23 +201,20 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
 
   // Preserve the proven walkable ramp and collision-free central aisle.
   createUndergroundMine(scene);
-  // Restore the Meshy assets as geological set dressing OUTSIDE the
-  // navigable aisle. Their raw meshes have not been verified as open tunnels,
-  // so they must never become the navigation floor or block the central path.
-  // Each side exhibit is bounded and grounded at the matching ramp elevation.
-  const mineDecorations = [
-    { name: 'mine_entrance_01', d: 1, side: -1 },
-    { name: 'mine_decline_01', d: 11, side: 1 },
-    { name: 'mine_tunnel_01', d: 21, side: -1 },
-    { name: 'mine_junction_01', d: 31, side: 1 },
-    { name: 'mine_corner_01', d: 41, side: -1 },
-  ] as const;
-  await Promise.all(mineDecorations.filter(item => hasWorldModel(item.name)).map(async item => {
-    const x = 53 + item.side * 4.6;
-    const z = -32 - item.d;
-    const y = mineFloorAtDistance(item.d);
-    await assets.placeMineDecoration(scene, item.name, x, y, z, 2.5, 3.0, 3.8);
-  }));
+  // First integration milestone: repeat the verified open-ended Meshy
+  // tunnel along the flat section. Keep the existing navigation floor.
+  // Model length is measured at runtime, not guessed from accessor bounds.
+  if (hasWorldModel('mine_tunnel_01')) {
+    const firstCenter = 21;
+    const moduleLength = await assets.placeStraightMineModule(scene, firstCenter);
+    if (moduleLength && Number.isFinite(moduleLength)) {
+      for (let i = 1; i < 3; i++) {
+        const center = firstCenter + moduleLength * i;
+        if (center + moduleLength / 2 > 46) break;
+        await assets.placeStraightMineModule(scene, center);
+      }
+    }
+  }
   // Cave models remain surface previews, separate from the mine.
   for (const [name, x, z] of [['cave_entrance_01', -55, 45], ['cave_tunnel_01', -55, 39]] as const) {
     if (hasWorldModel(name)) await assets.place(scene, name, x, z, 4);
