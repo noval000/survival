@@ -1,5 +1,14 @@
 import * as THREE from 'three';
-import { MINE_X, MINE_ENTRANCE_Z, MINE_LENGTH, MINE_HALF_WIDTH, mineFloorAtDistance } from './UndergroundMine';
+// Terrain must not import UndergroundMine: that module uses terrainHeight()
+// during initialization, which would create an ES module initialization cycle.
+const MINE_X = 53;
+const MINE_ENTRANCE_Z = -32;
+const MINE_LENGTH = 46;
+const MINE_HALF_WIDTH = 1.55;
+function mineFloorAtDistance(d: number) {
+  const surface = terrainHeight(MINE_X, MINE_ENTRANCE_Z);
+  return surface - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
+}
 
 const ISLAND_RADIUS = 104;
 const clamp = THREE.MathUtils.clamp;
