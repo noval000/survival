@@ -68,3 +68,6 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 - Removed unused procedural mine geometry loop: `dd121f9` (build verification pending).
 
 - Mine section yaw is now explicitly configurable and logged: `a8d7585`. Default yaw is zero until mesh openings are measured; visual validation pending.
+
+- Recursive mine GLB discovery in geometry audit: `4bfa6b0`; local audit execution pending.
+- Mine navigation now blocks entry through side walls and limits entry to the front portal: `c7342e8`; build and gameplay validation pending.
