@@ -94,8 +94,8 @@ export function createTerrain(
     if (r > radius) positions.setY(i, -1.8);
     else if (edge < 1) positions.setY(i, y * edge - 1.8 * (1 - edge));
   }
-  // Open only the surface portal. Never excavate a trench along the
-  // entire underground corridor: the terrain must cover the mine.
+  // Excavate the entire corridor. A separate earth roof covers it, so
+  // terrain polygons cannot intersect the player or hide the tunnel.
   const index = geometry.getIndex();
   if (index) {
     const kept: number[] = [];
@@ -104,7 +104,7 @@ export function createTerrain(
       const x = (positions.getX(a) + positions.getX(b) + positions.getX(c)) / 3;
       const z = (positions.getZ(a) + positions.getZ(b) + positions.getZ(c)) / 3;
       const d = -32 - z;
-      if (!(Math.abs(x - 53) < 2.15 && d >= -.5 && d < 9.5)) kept.push(a, b, c);
+      if (!(Math.abs(x - 53) < 2.7 && d > -0.8 && d < 46.5)) kept.push(a, b, c);
     }
     geometry.setIndex(kept);
   }
@@ -116,6 +116,25 @@ export function createTerrain(
   const ground = new THREE.Mesh(geometry, groundMaterial);
   ground.receiveShadow = true;
   scene.add(ground);
+
+  // Terrain cap follows the island height, but stays above the mine roof.
+  // Start 3m after the portal so the entrance remains visibly open.
+  const capGeo = new THREE.PlaneGeometry(5.6, 43, 8, 86);
+  capGeo.rotateX(-Math.PI / 2);
+  const capPos = capGeo.getAttribute('position') as THREE.BufferAttribute;
+  for (let i = 0; i < capPos.count; i++) {
+    const x = 53 + capPos.getX(i);
+    const z = -35 - (capPos.getZ(i) + 21.5);
+    const d = -32 - z;
+    const floor = terrainHeight(53, -32) - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
+    capPos.setY(i, Math.max(terrainHeight(x, z) + .15, floor + 4.3));
+    capPos.setX(i, x);
+    capPos.setZ(i, z);
+  }
+  capGeo.computeVertexNormals();
+  const cap = new THREE.Mesh(capGeo, groundMaterial);
+  cap.receiveShadow = true;
+  scene.add(cap);
 
   // Separate sand apron follows the coastline and covers the last few metres.
   const sandGeo = new THREE.RingGeometry(98, 104, 256, 12);
