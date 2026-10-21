@@ -7,7 +7,7 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 - [x] Automatic GLB registry generation (verified from user's dev log)
 - [ ] Mine GLB bounding-box debug (F8, code committed; browser validation pending)
 - [ ] Repository architecture audit and inventory of implemented mechanics
-- [ ] Model registry/placement: pivot, orientation, dimensions, terrain alignment
+- [ ] Model registry/placement: pivot, orientation, dimensions, terrain alignment (XZ/Y pivot normalization committed; rotation and visual validation pending)
 - [ ] GLB asset inspection: real meshes, openings, dimensions, local axes (audit script added; results and visual inspection pending)
 - [ ] Robust static and dynamic collision system with debug display
 - [ ] Prevent walking through trees, rocks, walls, and structures
@@ -63,3 +63,6 @@ Branch: `feature/walkable-mines`. A checkbox is checked only when the functional
 
 - GLB file structure audit added: `fecfe84`, run `node scripts/audit-mine-glbs.mjs`. Reports mesh/primitive counts and raw accessor dimensions; not equivalent to checking mesh openings or transforms.
 - Current phase remains foundation. Do not mark mine or collisions complete without a successful build and playthrough.
+
+- Surface GLB LOD pivot normalization: `36117ba` (build/gameplay verification pending).
+- Removed unused procedural mine geometry loop: `dd121f9` (build verification pending).
