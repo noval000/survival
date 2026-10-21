@@ -1,0 +1,61 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/Player.gd" id="1"]
+
+[sub_resource type="BoxShape3D" id="GroundShape"]
+size = Vector3(160, 1, 160)
+
+[sub_resource type="BoxMesh" id="GroundMesh"]
+size = Vector3(160, 1, 160)
+
+[sub_resource type="StandardMaterial3D" id="GroundMat"]
+albedo_color = Color(0.29, 0.42, 0.24, 1)
+roughness = 1.0
+
+[sub_resource type="CapsuleShape3D" id="PlayerShape"]
+radius = 0.35
+height = 1.8
+
+[sub_resource type="Environment" id="Environment"]
+background_mode = 2
+background_color = Color(0.57, 0.75, 0.85, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.76, 0.81, 0.88, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-48, -30, 0)
+light_energy = 1.5
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("GroundShape")
+position = Vector3(0, -0.5, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("GroundMesh")
+surface_material_override/0 = SubResource("GroundMat")
+position = Vector3(0, -0.5, 0)
+
+[node name="Player" type="CharacterBody3D" parent="."]
+script = ExtResource("1")
+position = Vector3(0, 2, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+shape = SubResource("PlayerShape")
+position = Vector3(0, 0.9, 0)
+
+[node name="Head" type="Node3D" parent="Player"]
+position = Vector3(0, 1.65, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Player/Head"]
+current = true
+fov = 75.0
