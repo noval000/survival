@@ -94,7 +94,7 @@ const touch=createTouchControls({
   axe(){tool=1;buildMode=false;updateSlots()},
   pickaxe(){tool=2;buildMode=false;updateSlots()},
 });
-document.addEventListener('keydown',e=>{if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='Digit1'){tool=1;buildMode=false;updateSlots()}if(e.code==='Digit2'){tool=2;buildMode=false;updateSlots()}if(e.code==='KeyI'||e.code==='KeyB'){const next=e.code==='KeyI'?'inventory':'build';openPanel=openPanel===next?'':next;if(e.code==='KeyB')buildMode=true;updateSlots();renderPanel();if(openPanel&&document.pointerLockElement)document.exitPointerLock()}if(e.code==='KeyE'&&buildMode&&!openPanel)place()});document.addEventListener('keyup',e=>keys.delete(e.code));
+document.addEventListener('keydown',e=>{if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyM'){player.position.set(53,terrainHeight(53,-30),-30);verticalVelocity=0;yaw=0;toast('Тест шахты: идите вперед (W)');}if(e.code==='Digit1'){tool=1;buildMode=false;updateSlots()}if(e.code==='Digit2'){tool=2;buildMode=false;updateSlots()}if(e.code==='KeyI'||e.code==='KeyB'){const next=e.code==='KeyI'?'inventory':'build';openPanel=openPanel===next?'':next;if(e.code==='KeyB')buildMode=true;updateSlots();renderPanel();if(openPanel&&document.pointerLockElement)document.exitPointerLock()}if(e.code==='KeyE'&&buildMode&&!openPanel)place()});document.addEventListener('keyup',e=>keys.delete(e.code));
 let verticalVelocity=0;
 let grounded=true;
 const vitals=new SurvivalVitals();
