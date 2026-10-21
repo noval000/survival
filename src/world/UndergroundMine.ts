@@ -74,12 +74,11 @@ export function createUndergroundMine(scene: THREE.Scene) {
     const slope = Math.atan2(y0 - y1, d1 - d0);
     const centerY = (y0 + y1) / 2;
     const centerZ = MINE_ENTRANCE_Z - mid;
-    for (const sign of [-1, 1]) {
-      const wall = makeBox(.38, 3.25, d1 - d0 + .04, stone, MINE_X + sign * 1.72, centerY + 1.58, centerZ);
-      wall.rotation.x = -slope;
-    }
-    const roof = makeBox(3.8, .42, d1 - d0 + .04, stone, MINE_X, centerY + 3.3, centerZ);
-    roof.rotation.x = -slope;
+    // Do not render placeholder box walls/roof over the real Meshy GLBs.
+    // The terrain cap and loaded GLB sections provide the visual enclosure.
+    void slope;
+    void centerY;
+    void centerZ;
   }
 
   // Supports and rails are visuals, not movement colliders.
