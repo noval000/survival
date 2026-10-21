@@ -25,24 +25,48 @@ export function mineFloorHeight(x: number, z: number): number | null {
  * free movement on the open terrain outside the portal.
  */
 export function mineAllowsMovement(fromX: number, fromZ: number, toX: number, toZ: number): boolean {
+  const radius = 0.35;
+  const halfAisle = MINE_HALF_WIDTH - radius;
   const d0 = mineDistance(fromZ);
   const d1 = mineDistance(toZ);
-  const inside = d0 >= 0 && d0 <= MINE_LENGTH &&
-    Math.abs(fromX - MINE_X) <= MINE_HALF_WIDTH;
-  const entering = d1 >= 0 && d1 <= MINE_LENGTH &&
-    Math.abs(toX - MINE_X) <= MINE_HALF_WIDTH;
-  if (!inside && !entering) {
-    // The portal is the only allowed crossing of the front mine boundary.
+  const lateral0 = Math.abs(fromX - MINE_X);
+  const lateral1 = Math.abs(toX - MINE_X);
+  const inside = d0 >= 0 && d0 <= MINE_LENGTH && lateral0 <= MINE_HALF_WIDTH;
+  const entering = d1 >= 0 && d1 <= MINE_LENGTH && lateral1 <= MINE_HALF_WIDTH;
+
+  if (inside) {
+    // A capsule may leave only through the front portal, not through side
+    // walls or the sealed end of the shaft.
+    if (lateral1 > halfAisle) return false;
+    if (d1 > MINE_LENGTH - radius) return false;
     return true;
   }
-  if (inside) {
-    const radius = .35;
-    if (Math.abs(toX - MINE_X) > MINE_HALF_WIDTH - radius) return false;
-    if (d1 > MINE_LENGTH - radius) return false;
-    // Exit through the open front portal only.
-    if (d1 < 0 && Math.abs(toX - MINE_X) > MINE_HALF_WIDTH - radius) return false;
+
+  if (!entering) {
+    // Reject steps that cut across a wall and end beyond the opposite side.
+    // For short player steps this is uncommon, but prevents tunnelling.
+    const minD = Math.min(d0, d1);
+    const maxD = Math.max(d0, d1);
+    if (maxD < 0 || minD > MINE_LENGTH) return true;
+    const deltaX = toX - fromX;
+    if (Math.abs(deltaX) < 1e-6) return true;
+    for (const wallX of [MINE_X - MINE_HALF_WIDTH, MINE_X + MINE_HALF_WIDTH]) {
+      const t = (wallX - fromX) / deltaX;
+      if (t > 0 && t < 1) {
+        const crossingD = d0 + (d1 - d0) * t;
+        if (crossingD >= 0 && crossingD <= MINE_LENGTH) return false;
+      }
+    }
+    return true;
   }
-  return true;
+
+  // Entering from outside must cross the OPEN front portal, never a side
+  // wall or the back. Keep the player's radius clear of the side supports.
+  if (lateral1 > halfAisle || d1 > MINE_LENGTH - radius) return false;
+  if (d0 >= 0) return false;
+  const t = d1 === d0 ? 1 : -d0 / (d1 - d0);
+  const portalX = fromX + (toX - fromX) * t;
+  return Math.abs(portalX - MINE_X) <= halfAisle;
 }
 
 export function isMinePortalCutout(x: number, z: number) {
