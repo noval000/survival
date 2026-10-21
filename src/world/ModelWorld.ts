@@ -130,17 +130,16 @@ export async function populateModelWorld(scene: THREE.Scene, random: () => numbe
 
   // Preserve the proven walkable ramp and collision-free central aisle.
   createUndergroundMine(scene);
-  // All five original GLBs are loaded and shown as fitted side details.
-  // A model cannot close the passage because its X span stays outside
-  // the central 2.4m-wide walking aisle.
+  // Fit each original GLB to a full-size corridor section.
+  // Collision remains controlled by the independent navigation floor.
   const surfaceY = terrainHeight(53, -32);
   const floorAt = (d: number) => surfaceY - 7 * THREE.MathUtils.clamp(d / 16, 0, 1);
   const decorations = [
-    { name: 'mine_entrance_01', x: 56.6, d: 0, w: 2.3, h: 4.0, depth: 4.0 },
-    { name: 'mine_decline_01', x: 54.9, d: 8, w: 1.1, h: 2.6, depth: 5.0 },
-    { name: 'mine_tunnel_01', x: 51.1, d: 20, w: 1.1, h: 2.6, depth: 5.0 },
-    { name: 'mine_junction_01', x: 54.9, d: 31, w: 1.1, h: 2.6, depth: 5.0 },
-    { name: 'mine_corner_01', x: 51.1, d: 40, w: 1.1, h: 2.6, depth: 5.0 },
+    { name: 'mine_entrance_01', x: 53, d: 0, w: 4.8, h: 4.5, depth: 5.0 },
+    { name: 'mine_decline_01', x: 53, d: 8, w: 4.5, h: 3.8, depth: 9.0 },
+    { name: 'mine_tunnel_01', x: 53, d: 20, w: 4.5, h: 3.8, depth: 8.0 },
+    { name: 'mine_junction_01', x: 53, d: 31, w: 4.5, h: 3.8, depth: 8.0 },
+    { name: 'mine_corner_01', x: 53, d: 40, w: 4.5, h: 3.8, depth: 8.0 },
   ];
   await Promise.all(decorations.map(item =>
     assets.placeMineDecoration(scene, item.name, item.x, floorAt(item.d),
