@@ -19,6 +19,10 @@ var was_grounded: bool = false
 var last_vertical_speed: float = 0.0
 var step_distance: float = 0.0
 var footstep: AudioStreamPlayer
+var resources: Dictionary = {"wood": 0, "stone": 0}
+var equipped_tool: String = "axe"
+var harvest_cooldown: float = 0.0
+var resource_label: Label
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -32,6 +36,10 @@ func _ready() -> void:
     status_label.add_theme_constant_override("shadow_offset_x", 2)
     status_label.add_theme_constant_override("shadow_offset_y", 2)
     hud.add_child(status_label)
+    resource_label = Label.new()
+    resource_label.position = Vector2(20, 90)
+    resource_label.add_theme_font_size_override("font_size", 19)
+    hud.add_child(resource_label)
     camera_home = camera.position
     setup_arms()
     setup_footstep()
@@ -41,6 +49,11 @@ func _unhandled_input(event: InputEvent) -> void:
         Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
     elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    elif event is InputEventKey and event.pressed and not event.echo:
+        if event.physical_keycode == KEY_1:
+            equipped_tool = "axe"
+        elif event.physical_keycode == KEY_2:
+            equipped_tool = "pickaxe"
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
         # Ignore implausible driver spikes; never rotate 180 degrees on a single event.
         var mouse_delta: Vector2 = (event as InputEventMouseMotion).relative.limit_length(45.0)
@@ -49,6 +62,11 @@ func _unhandled_input(event: InputEvent) -> void:
         head.rotation.x = clampf(head.rotation.x, -1.35, 1.35)
 
 func _physics_process(delta: float) -> void:
+    harvest_cooldown = maxf(0.0, harvest_cooldown - delta)
+    if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and harvest_cooldown <= 0.0:
+        try_harvest()
+    if resource_label != null:
+        resource_label.text = "1 Axe | 2 Pickaxe | LMB Harvest\\nTool: %s | Wood: %d | Stone: %d" % [equipped_tool, int(resources["wood"]), int(resources["stone"])]
     if not is_on_floor():
         velocity.y -= gravity * delta
     elif Input.is_action_just_pressed("jump") or Input.is_physical_key_pressed(KEY_SPACE):
@@ -157,3 +175,21 @@ func setup_footstep() -> void:
     wave.stereo = false
     wave.data = bytes
     footstep.stream = wave
+
+func try_harvest() -> void:
+    harvest_cooldown = 0.55
+    var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 3.5)
+    query.exclude = [get_rid()]
+    var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty():
+        return
+    var target: Object = hit.get("collider")
+    if target == null or not target.is_in_group("harvestable"):
+        return
+    var result: Dictionary = target.call("harvest", equipped_tool, 25)
+    for kind in result:
+        resources[kind] = int(resources.get(kind, 0)) + int(result[kind])
+    if bool(target.get("depleted")):
+        var visual: Node3D = target.get_meta("visual", null) as Node3D
+        if visual != null:
+            visual.visible = false
