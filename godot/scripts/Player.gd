@@ -8,9 +8,20 @@ extends CharacterBody3D
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 var gravity := 18.0
+var status_label: Label
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    var hud := CanvasLayer.new()
+    hud.name = "MovementDiagnostics"
+    add_child(hud)
+    status_label = Label.new()
+    status_label.position = Vector2(20, 20)
+    status_label.add_theme_font_size_override("font_size", 18)
+    status_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+    status_label.add_theme_constant_override("shadow_offset_x", 2)
+    status_label.add_theme_constant_override("shadow_offset_y", 2)
+    hud.add_child(status_label)
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -41,3 +52,5 @@ func _physics_process(delta: float) -> void:
     velocity.x = move_toward(velocity.x, wish.x * speed, accel * delta)
     velocity.z = move_toward(velocity.z, wish.z * speed, accel * delta)
     move_and_slide()
+    if status_label != null:
+        status_label.text = "WASD move | SPACE jump | SHIFT sprint | ESC mouse\\nInput: %s  Floor: %s  Pos: (%.1f, %.1f, %.1f)  Velocity: (%.1f, %.1f, %.1f)" % [str(axis), str(is_on_floor()), global_position.x, global_position.y, global_position.z, velocity.x, velocity.y, velocity.z]
