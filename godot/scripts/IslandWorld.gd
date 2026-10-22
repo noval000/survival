@@ -24,6 +24,7 @@ func _ready() -> void:
     create_terrain()
     create_water()
     create_vegetation()
+    create_rocks()
 
 func height_at(x: float, z: float) -> float:
     var r := Vector2(x, z).length()
@@ -87,35 +88,115 @@ func create_water() -> void:
     water.material_override = material
     add_child(water)
 
+# Reuse one imported GLB resource per tree type instead of reloading on each spawn.
+# Procedural trees are an intentionally lightweight fallback when heavy Meshy
+# assets are absent or disabled due to editor crashes.
+var model_cache: Dictionary = {}
+
 func create_vegetation() -> void:
     var rng := RandomNumberGenerator.new()
     rng.seed = 77531
-    for i in range(65):
-        var x := rng.randf_range(-61.0, 61.0)
-        var z := rng.randf_range(-61.0, 61.0)
-        var distance := Vector2(x, z).length()
-        if distance < 19.0 or distance > 58.0:
+    for i in range(90):
+        var x: float = rng.randf_range(-61.0, 61.0)
+        var z: float = rng.randf_range(-61.0, 61.0)
+        var distance: float = Vector2(x, z).length()
+        if distance < 18.0 or distance > 59.0:
             continue
-        var kind := "pine" if rng.randf() < 0.6 else "spruce"
-        var tree := instantiate_model(kind)
+        var kind: String = "pine" if rng.randf() < 0.6 else "spruce"
+        var tree: Node3D = instantiate_model(kind)
         if tree == null:
-            continue
-        tree.position = Vector3(x, height_at(x, z) - 0.15, z)
+            tree = make_fallback_tree(rng)
+        tree.position = Vector3(x, height_at(x, z) - 0.12, z)
         tree.rotation.y = rng.randf_range(0.0, TAU)
-        tree.scale = Vector3.ONE * rng.randf_range(3.0, 5.0)
         add_child(tree)
     for point in [Vector2(-38.0, -34.0), Vector2(41.0, -38.0)]:
-        var mountain := instantiate_model("mountain")
+        var mountain: Node3D = instantiate_model("mountain")
         if mountain != null:
             mountain.position = Vector3(point.x, height_at(point.x, point.y) - 1.0, point.y)
             mountain.scale = Vector3.ONE * 9.0
             add_child(mountain)
 
+func make_fallback_tree(rng: RandomNumberGenerator) -> Node3D:
+    var root := Node3D.new()
+    root.name = "Pine"
+    var trunk_height: float = rng.randf_range(3.8, 5.8)
+    var trunk_mesh := CylinderMesh.new()
+    trunk_mesh.top_radius = 0.16
+    trunk_mesh.bottom_radius = 0.28
+    trunk_mesh.height = trunk_height
+    var bark := StandardMaterial3D.new()
+    bark.albedo_color = Color(0.31, 0.21, 0.13)
+    bark.roughness = 1.0
+    var trunk := MeshInstance3D.new()
+    trunk.mesh = trunk_mesh
+    trunk.material_override = bark
+    trunk.position.y = trunk_height * 0.5
+    root.add_child(trunk)
+    var needles := StandardMaterial3D.new()
+    needles.albedo_color = Color(0.13 + rng.randf_range(0.0, 0.07), 0.24, 0.16)
+    needles.roughness = 1.0
+    for level in range(3):
+        var crown_mesh := CylinderMesh.new()
+        crown_mesh.top_radius = 0.0
+        crown_mesh.bottom_radius = 1.5 - float(level) * 0.28
+        crown_mesh.height = 2.7
+        var crown := MeshInstance3D.new()
+        crown.mesh = crown_mesh
+        crown.material_override = needles
+        crown.position.y = trunk_height * 0.52 + float(level) * 1.08
+        root.add_child(crown)
+    var trunk_body := StaticBody3D.new()
+    var trunk_shape := CollisionShape3D.new()
+    var cylinder := CylinderShape3D.new()
+    cylinder.radius = 0.29
+    cylinder.height = trunk_height
+    trunk_shape.shape = cylinder
+    trunk_shape.position.y = trunk_height * 0.5
+    trunk_body.add_child(trunk_shape)
+    root.add_child(trunk_body)
+    return root
+
+func create_rocks() -> void:
+    var rng := RandomNumberGenerator.new()
+    rng.seed = 14298
+    var rock_material := StandardMaterial3D.new()
+    rock_material.albedo_color = Color(0.37, 0.39, 0.37)
+    rock_material.roughness = 1.0
+    for i in range(75):
+        var x: float = rng.randf_range(-63.0, 63.0)
+        var z: float = rng.randf_range(-63.0, 63.0)
+        var r: float = Vector2(x, z).length()
+        if r < 16.0 or r > 62.0:
+            continue
+        var size: float = rng.randf_range(0.55, 2.2)
+        var mesh := SphereMesh.new()
+        mesh.radius = 1.0
+        mesh.height = 2.0
+        mesh.radial_segments = 8
+        mesh.rings = 4
+        var rock := MeshInstance3D.new()
+        rock.name = "Rock"
+        rock.mesh = mesh
+        rock.material_override = rock_material
+        rock.scale = Vector3(size, size * 0.62, size * 0.85)
+        rock.position = Vector3(x, height_at(x, z) + size * 0.17, z)
+        add_child(rock)
+        var body := StaticBody3D.new()
+        body.position = rock.position
+        var shape := CollisionShape3D.new()
+        var sphere := SphereShape3D.new()
+        sphere.radius = size * 0.7
+        shape.shape = sphere
+        body.add_child(shape)
+        add_child(body)
+
 func instantiate_model(kind: String) -> Node3D:
     var path: String = MODEL_PATHS[kind]
     if not ResourceLoader.exists(path):
         return null
-    var scene := load(path) as PackedScene
+    if not model_cache.has(path):
+        model_cache[path] = load(path) as PackedScene
+    var scene: PackedScene = model_cache[path] as PackedScene
     if scene == null:
         return null
     return scene.instantiate() as Node3D
