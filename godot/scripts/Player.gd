@@ -23,6 +23,8 @@ var resources: Dictionary = {"wood": 0, "stone": 0}
 var equipped_tool: String = "axe"
 var harvest_cooldown: float = 0.0
 var resource_label: Label
+var tool_visual: Node3D
+var swing_time: float = 0.0
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -43,6 +45,7 @@ func _ready() -> void:
     camera_home = camera.position
     setup_arms()
     setup_footstep()
+    setup_tool()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -52,8 +55,10 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event is InputEventKey and event.pressed and not event.echo:
         if event.physical_keycode == KEY_1:
             equipped_tool = "axe"
+            setup_tool()
         elif event.physical_keycode == KEY_2:
             equipped_tool = "pickaxe"
+            setup_tool()
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
         # Ignore implausible driver spikes; never rotate 180 degrees on a single event.
         var mouse_delta: Vector2 = (event as InputEventMouseMotion).relative.limit_length(45.0)
@@ -63,6 +68,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
     harvest_cooldown = maxf(0.0, harvest_cooldown - delta)
+    swing_time = maxf(0.0, swing_time - delta)
+    if tool_visual != null:
+        var swing: float = sin((1.0 - swing_time / 0.4) * PI) if swing_time > 0.0 else 0.0
+        tool_visual.rotation.x = lerpf(tool_visual.rotation.x, -0.4 - swing, minf(delta * 20.0, 1.0))
     if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and harvest_cooldown <= 0.0:
         try_harvest()
     if resource_label != null:
@@ -178,6 +187,7 @@ func setup_footstep() -> void:
 
 func try_harvest() -> void:
     harvest_cooldown = 0.55
+    swing_time = 0.4
     var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 3.5)
     query.exclude = [get_rid()]
     var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
@@ -193,3 +203,37 @@ func try_harvest() -> void:
         var visual: Node3D = target.get_meta("visual", null) as Node3D
         if visual != null:
             visual.visible = false
+
+func setup_tool() -> void:
+    if arm_root == null:
+        return
+    if tool_visual != null:
+        tool_visual.queue_free()
+    tool_visual = Node3D.new()
+    tool_visual.name = "EquippedTool"
+    tool_visual.position = Vector3(0.43, -0.46, -0.85)
+    tool_visual.rotation.x = -0.4
+    arm_root.add_child(tool_visual)
+    var wood := StandardMaterial3D.new()
+    wood.albedo_color = Color(0.30, 0.19, 0.10)
+    var metal := StandardMaterial3D.new()
+    metal.albedo_color = Color(0.45, 0.49, 0.52)
+    metal.metallic = 0.55
+    var handle := CylinderMesh.new()
+    handle.top_radius = 0.035
+    handle.bottom_radius = 0.042
+    handle.height = 0.95
+    var shaft := MeshInstance3D.new()
+    shaft.mesh = handle
+    shaft.material_override = wood
+    tool_visual.add_child(shaft)
+    var head_mesh := BoxMesh.new()
+    if equipped_tool == "pickaxe":
+        head_mesh.size = Vector3(0.44, 0.13, 0.12)
+    else:
+        head_mesh.size = Vector3(0.27, 0.26, 0.11)
+    var head_node := MeshInstance3D.new()
+    head_node.mesh = head_mesh
+    head_node.material_override = metal
+    head_node.position = Vector3(0.05, 0.41, 0.0)
+    tool_visual.add_child(head_node)
