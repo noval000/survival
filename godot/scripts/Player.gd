@@ -21,7 +21,7 @@ var was_grounded: bool = false
 var last_vertical_speed: float = 0.0
 var step_distance: float = 0.0
 var footstep: AudioStreamPlayer
-var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0}
+var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0}
 var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
 var inventory_ui: CanvasLayer
 var equipped_tool: String = "axe"
@@ -289,6 +289,8 @@ func craft_item(recipe: String) -> void:
     var costs: Dictionary = {}
     if recipe == "plank":
         costs = {"wood": 5}
+    elif recipe == "iron_bar":
+        costs = {"iron": 3, "coal": 2}
     elif recipe == "axe":
         costs = {"wood": 10, "stone": 5}
     elif recipe == "pickaxe":
@@ -302,6 +304,8 @@ func craft_item(recipe: String) -> void:
         resources[material] = int(resources.get(material, 0)) - int(costs[material])
     if recipe == "plank":
         resources["plank"] = int(resources.get("plank", 0)) + 2
+    elif recipe == "iron_bar":
+        resources["iron_bar"] = int(resources.get("iron_bar", 0)) + 1
     else:
         owned_tools[recipe] = true
         equipped_tool = recipe
