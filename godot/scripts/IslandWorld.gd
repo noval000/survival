@@ -38,6 +38,7 @@ func height_at(x: float, z: float) -> float:
 func create_terrain() -> void:
     var vertices := PackedVector3Array()
     var colors := PackedColorArray()
+    var normals := PackedVector3Array()
     var indices := PackedInt32Array()
     for z in range(CELLS + 1):
         for x in range(CELLS + 1):
@@ -45,6 +46,10 @@ func create_terrain() -> void:
             var wz := (float(z) / CELLS - 0.5) * SIZE
             var h := height_at(wx, wz)
             vertices.append(Vector3(wx, h, wz))
+            var sample_step: float = SIZE / float(CELLS)
+            var dx: float = height_at(wx + sample_step, wz) - height_at(wx - sample_step, wz)
+            var dz: float = height_at(wx, wz + sample_step) - height_at(wx, wz - sample_step)
+            normals.append(Vector3(-dx, 2.0 * sample_step, -dz).normalized())
             var inland := 1.0 - smoothstep(49.0, 64.0, Vector2(wx, wz).length())
             var base := Color(0.67, 0.59, 0.42).lerp(Color(0.26, 0.39, 0.24), inland)
             colors.append(base.lerp(Color(0.39, 0.40, 0.38), smoothstep(4.5, 8.0, h)))
@@ -56,6 +61,7 @@ func create_terrain() -> void:
     arrays.resize(Mesh.ARRAY_MAX)
     arrays[Mesh.ARRAY_VERTEX] = vertices
     arrays[Mesh.ARRAY_COLOR] = colors
+    arrays[Mesh.ARRAY_NORMAL] = normals
     arrays[Mesh.ARRAY_INDEX] = indices
     var mesh := ArrayMesh.new()
     mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
