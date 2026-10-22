@@ -3,7 +3,7 @@ extends CanvasLayer
 signal craft_requested(recipe: String)
 signal tool_selected(tool: String)
 
-var inventory: Dictionary = {"wood": 0, "stone": 0, "plank": 0}
+var inventory: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0}
 var tools: Dictionary = {"axe": true, "pickaxe": true}
 var current_tool: String = "axe"
 var panel: PanelContainer
@@ -43,7 +43,7 @@ func _ready() -> void:
     recipes.text = "CRAFTING"
     recipes.add_theme_font_size_override("font_size", 20)
     content.add_child(recipes)
-    for recipe in ["plank", "axe", "pickaxe"]:
+    for recipe in ["plank", "axe", "pickaxe", "iron_bar"]:
         var button := Button.new()
         button.pressed.connect(_on_craft.bind(recipe))
         recipe_buttons[recipe] = button
@@ -77,7 +77,10 @@ func refresh() -> void:
     hotbar_text.text = "[1] AXE%s     [2] PICKAXE%s     [I] INVENTORY" % [" *" if current_tool == "axe" else "", " *" if current_tool == "pickaxe" else ""]
     if resource_text == null:
         return
-    resource_text.text = "Wood: %d     Stone: %d     Planks: %d" % [int(inventory.get("wood", 0)), int(inventory.get("stone", 0)), int(inventory.get("plank", 0))]
+    resource_text.text = "Wood: %d   Stone: %d   Planks: %d\nIron: %d   Coal: %d   Iron bars: %d" % [int(inventory.get("wood", 0)), int(inventory.get("stone", 0)), int(inventory.get("plank", 0)), int(inventory.get("iron", 0)), int(inventory.get("coal", 0)), int(inventory.get("iron_bar", 0))]
+    var smelt_button: Button = recipe_buttons["iron_bar"]
+    smelt_button.text = "Smelt iron bar  (3 iron, 2 coal)"
+    smelt_button.disabled = int(inventory.get("iron", 0)) < 3 or int(inventory.get("coal", 0)) < 2
     var plank_button: Button = recipe_buttons["plank"]
     plank_button.text = "Make 2 planks  (5 wood)"
     plank_button.disabled = int(inventory.get("wood", 0)) < 5
