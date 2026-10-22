@@ -30,7 +30,11 @@ func _physics_process(delta: float) -> void:
     elif Input.is_action_just_pressed("jump"):
         velocity.y = jump_velocity
 
-    var axis := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+    var x_axis: float = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
+    var z_axis: float = float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W))
+    var axis := Vector2(x_axis, z_axis).normalized()
+    if axis == Vector2.ZERO:
+        axis = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
     var wish := (global_transform.basis * Vector3(axis.x, 0.0, axis.y)).normalized()
     var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
     var accel := 15.0 if is_on_floor() else 4.0
