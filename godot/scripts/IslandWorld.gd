@@ -133,6 +133,8 @@ func _process(delta: float) -> void:
     if lod_player == null:
         return
     for entry in lod_trees:
+        if bool(entry.get("depleted", false)):
+            continue
         var near_tree: Node3D = entry["near"]
         var far_tree: Node3D = entry["far"]
         var distance_squared: float = lod_player.global_position.distance_squared_to(near_tree.global_position)
