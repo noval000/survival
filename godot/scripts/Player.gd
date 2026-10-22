@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+const INVENTORY_UI_SCRIPT = preload("res://scripts/InventoryUI.gd")
+
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
 @export var mouse_sensitivity := 0.0016
@@ -19,7 +21,9 @@ var was_grounded: bool = false
 var last_vertical_speed: float = 0.0
 var step_distance: float = 0.0
 var footstep: AudioStreamPlayer
-var resources: Dictionary = {"wood": 0, "stone": 0}
+var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0}
+var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
+var inventory_ui: CanvasLayer
 var equipped_tool: String = "axe"
 var harvest_cooldown: float = 0.0
 var resource_label: Label
@@ -52,21 +56,39 @@ func _ready() -> void:
     setup_arms()
     setup_footstep()
     setup_tool()
+    inventory_ui = INVENTORY_UI_SCRIPT.new()
+    inventory_ui.name = "InventoryUI"
+    add_child(inventory_ui)
+    inventory_ui.craft_requested.connect(craft_item)
+    sync_inventory()
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event.is_action_pressed("ui_cancel"):
-        Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-    elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+    if event is InputEventKey and event.pressed and not event.echo:
+        if event.physical_keycode == KEY_I:
+            var opened: bool = inventory_ui.toggle_inventory()
+            Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if opened else Input.MOUSE_MODE_CAPTURED
+            get_viewport().set_input_as_handled()
+            return
+        if event.physical_keycode == KEY_ESCAPE:
+            if inventory_ui.is_open():
+                inventory_ui.toggle_inventory()
+                Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+            else:
+                Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+            get_viewport().set_input_as_handled()
+            return
+        if not inventory_ui.is_open():
+            if event.physical_keycode == KEY_1:
+                equipped_tool = "axe"
+                setup_tool()
+                sync_inventory()
+            elif event.physical_keycode == KEY_2:
+                equipped_tool = "pickaxe"
+                setup_tool()
+                sync_inventory()
+    elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not inventory_ui.is_open():
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-    elif event is InputEventKey and event.pressed and not event.echo:
-        if event.physical_keycode == KEY_1:
-            equipped_tool = "axe"
-            setup_tool()
-        elif event.physical_keycode == KEY_2:
-            equipped_tool = "pickaxe"
-            setup_tool()
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-        # Ignore implausible driver spikes; never rotate 180 degrees on a single event.
         var mouse_delta: Vector2 = (event as InputEventMouseMotion).relative.limit_length(45.0)
         rotate_y(-mouse_delta.x * mouse_sensitivity)
         head.rotate_x(-mouse_delta.y * mouse_sensitivity)
@@ -84,7 +106,7 @@ func _physics_process(delta: float) -> void:
     if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and harvest_cooldown <= 0.0:
         try_harvest()
     if resource_label != null:
-        resource_label.text = "1 Axe | 2 Pickaxe | LMB Harvest\\nTool: %s | Wood: %d | Stone: %d" % [equipped_tool, int(resources["wood"]), int(resources["stone"])]
+        resource_label.text = "LMB Harvest | I Inventory"
     if not is_on_floor():
         velocity.y -= gravity * delta
     elif Input.is_action_just_pressed("jump") or Input.is_physical_key_pressed(KEY_SPACE):
@@ -210,6 +232,8 @@ func try_harvest() -> void:
         resources[kind] = int(resources.get(kind, 0)) + int(result[kind])
         feedback_remaining = 1.25
         harvest_feedback.text = "+%d %s" % [int(result[kind]), str(kind)]
+    if not result.is_empty():
+        sync_inventory()
     if bool(target.get("depleted")):
         var visual: Node3D = target.get_meta("visual", null) as Node3D
         if visual != null:
@@ -256,3 +280,32 @@ func setup_tool() -> void:
     head_node.material_override = metal
     head_node.position = Vector3(0.05, 0.41, 0.0)
     tool_visual.add_child(head_node)
+
+func sync_inventory() -> void:
+    if inventory_ui != null:
+        inventory_ui.set_inventory(resources, owned_tools, equipped_tool)
+
+func craft_item(recipe: String) -> void:
+    var costs: Dictionary = {}
+    if recipe == "plank":
+        costs = {"wood": 5}
+    elif recipe == "axe":
+        costs = {"wood": 10, "stone": 5}
+    elif recipe == "pickaxe":
+        costs = {"wood": 5, "stone": 10}
+    else:
+        return
+    for material in costs:
+        if int(resources.get(material, 0)) < int(costs[material]):
+            return
+    for material in costs:
+        resources[material] = int(resources.get(material, 0)) - int(costs[material])
+    if recipe == "plank":
+        resources["plank"] = int(resources.get("plank", 0)) + 2
+    else:
+        owned_tools[recipe] = true
+        equipped_tool = recipe
+        setup_tool()
+    sync_inventory()
+    feedback_remaining = 1.5
+    harvest_feedback.text = "Crafted: %s" % recipe
