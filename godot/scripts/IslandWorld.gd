@@ -67,10 +67,21 @@ func create_terrain() -> void:
     terrain.name = "IslandTerrain"
     terrain.mesh = mesh
     add_child(terrain)
+    # HeightMapShape3D is a dedicated solid terrain collider, independent of
+    # mesh triangle winding / backface settings on GL Compatibility.
+    var terrain_shape := HeightMapShape3D.new()
+    terrain_shape.map_width = CELLS + 1
+    terrain_shape.map_depth = CELLS + 1
+    var heights := PackedFloat32Array()
+    for z in range(CELLS + 1):
+        for x in range(CELLS + 1):
+            heights.append(vertices[z * (CELLS + 1) + x].y)
+    terrain_shape.map_data = heights
     var body := StaticBody3D.new()
     body.name = "TerrainCollision"
+    body.scale = Vector3(SIZE / float(CELLS), 1.0, SIZE / float(CELLS))
     var shape := CollisionShape3D.new()
-    shape.shape = mesh.create_trimesh_shape()
+    shape.shape = terrain_shape
     body.add_child(shape)
     add_child(body)
 
