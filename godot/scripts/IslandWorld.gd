@@ -130,6 +130,9 @@ func _process(delta: float) -> void:
         var use_far: bool = distance_squared > 35.0 * 35.0
         near_tree.visible = not use_far
         far_tree.visible = use_far
+        var trunk_body: StaticBody3D = near_tree.get_node_or_null("TrunkCollision") as StaticBody3D
+        if trunk_body != null:
+            trunk_body.process_mode = Node.PROCESS_MODE_ALWAYS
 
 func create_vegetation() -> void:
     var rng := RandomNumberGenerator.new()
@@ -145,15 +148,18 @@ func create_vegetation() -> void:
         if tree == null:
             tree = make_fallback_tree(rng)
         else:
-            fit_model_height(tree, rng.randf_range(5.5, 8.5))
-            add_tree_collision(tree)
+            var target_height: float = rng.randf_range(5.5, 8.5)
+            fit_model_height(tree, target_height)
+            add_tree_collision(tree, target_height)
         tree.position = Vector3(x, height_at(x, z) - 0.12, z)
         tree.rotation.y = rng.randf_range(0.0, TAU)
         add_child(tree)
         if tree.get_node_or_null("TrunkCollision") != null:
             var far_tree: Node3D = instantiate_tree_lod(kind, 2)
             if far_tree != null:
-                fit_model_height(far_tree, 7.0)
+                # Both variants must share exactly the same world-space bounds.
+                var tree_height: float = float(tree.get_meta("target_height", 7.0))
+                fit_model_height(far_tree, tree_height)
                 far_tree.position = tree.position
                 far_tree.rotation = tree.rotation
                 far_tree.visible = false
@@ -285,18 +291,24 @@ func fit_model_height(model: Node3D, target_height: float) -> void:
             var spatial_child: Node3D = child as Node3D
             spatial_child.position -= Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
     model.scale = Vector3.ONE * factor
+    model.set_meta("target_height", target_height)
 
-func add_tree_collision(tree: Node3D) -> void:
+func add_tree_collision(tree: Node3D, tree_height: float) -> void:
+    # Keep collision outside the imported visual hierarchy so that
+    # switching LOD visibility cannot hide or alter the physical trunk.
     var body := StaticBody3D.new()
     body.name = "TrunkCollision"
     var shape := CollisionShape3D.new()
     var trunk := CylinderShape3D.new()
-    trunk.radius = 0.30
-    trunk.height = 3.4
+    trunk.radius = clampf(tree_height * 0.055, 0.28, 0.52)
+    trunk.height = tree_height * 0.72
     shape.shape = trunk
-    shape.position.y = 1.7
+    shape.position.y = trunk.height * 0.5
     body.add_child(shape)
     tree.add_child(body)
+    # The model is normalized with root scale, but the collider must stay
+    # in world units rather than inherit that arbitrary Meshy scale.
+    body.scale = Vector3.ONE / tree.scale
 
 # A single MultiMesh draw call for scattered grass, keeping the island
 # inexpensive on integrated graphics / the GL Compatibility renderer.
