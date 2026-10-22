@@ -173,6 +173,7 @@ func create_vegetation() -> void:
                 far_tree.visible = false
                 add_child(far_tree)
                 lod_trees.append({"near": tree, "far": far_tree})
+
     for point in [Vector2(-38.0, -34.0), Vector2(41.0, -38.0)]:
         var mountain: Node3D = instantiate_model("mountain")
         if mountain != null:
@@ -210,6 +211,11 @@ func make_fallback_tree(rng: RandomNumberGenerator) -> Node3D:
         crown.position.y = trunk_height * 0.52 + float(level) * 1.08
         root.add_child(crown)
     var trunk_body := StaticBody3D.new()
+    trunk_body.set_script(HARVESTABLE_SCRIPT)
+    trunk_body.set("resource_type", "wood")
+    trunk_body.set("max_health", 100)
+    trunk_body.set("yield_amount", 25)
+    trunk_body.set_meta("visual", root)
     var trunk_shape := CollisionShape3D.new()
     var cylinder := CylinderShape3D.new()
     cylinder.radius = 0.29
