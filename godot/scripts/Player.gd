@@ -1,6 +1,7 @@
 extends CharacterBody3D
 
 const INVENTORY_UI_SCRIPT = preload("res://scripts/InventoryUI.gd")
+const BUILDING_SCRIPT = preload("res://scripts/BuildingSystem.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -24,6 +25,7 @@ var footstep: AudioStreamPlayer
 var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0}
 var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
 var inventory_ui: CanvasLayer
+var building: Node3D
 var equipped_tool: String = "axe"
 var harvest_cooldown: float = 0.0
 var resource_label: Label
@@ -61,6 +63,10 @@ func _ready() -> void:
     add_child(inventory_ui)
     inventory_ui.craft_requested.connect(craft_item)
     sync_inventory()
+    building = BUILDING_SCRIPT.new()
+    building.name = "BuildingSystem"
+    building.configure(self, camera, get_parent().get_node("IslandWorld"))
+    get_parent().add_child.call_deferred(building)
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
@@ -78,6 +84,23 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if not inventory_ui.is_open():
+            if event.physical_keycode == KEY_B:
+                building.set_active(not building.active)
+                get_viewport().set_input_as_handled()
+                return
+            if building.active:
+                if event.physical_keycode == KEY_1:
+                    building.choose_piece("foundation")
+                elif event.physical_keycode == KEY_2:
+                    building.choose_piece("wall")
+                elif event.physical_keycode == KEY_3:
+                    building.choose_piece("doorway")
+                elif event.physical_keycode == KEY_4:
+                    building.choose_piece("roof")
+                elif event.physical_keycode == KEY_R:
+                    building.rotate_piece()
+                get_viewport().set_input_as_handled()
+                return
             if event.physical_keycode == KEY_1:
                 equipped_tool = "axe"
                 setup_tool()
@@ -104,9 +127,19 @@ func _physics_process(delta: float) -> void:
         var swing: float = sin((1.0 - swing_time / 0.4) * PI) if swing_time > 0.0 else 0.0
         tool_visual.rotation.x = lerpf(tool_visual.rotation.x, -0.4 - swing, minf(delta * 20.0, 1.0))
     if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and harvest_cooldown <= 0.0:
-        try_harvest()
+        if building != null and building.active:
+            harvest_cooldown = 0.25
+            if building.place_piece(resources):
+                sync_inventory()
+                feedback_remaining = 1.3
+                harvest_feedback.text = "Built: %s" % building.piece_type
+            else:
+                feedback_remaining = 0.8
+                harvest_feedback.text = "Cannot place / missing resources"
+        else:
+            try_harvest()
     if resource_label != null:
-        resource_label.text = "LMB Harvest | I Inventory"
+        resource_label.text = "B Build | 1-4 Pieces | R Rotate | LMB Place" if building != null and building.active else "LMB Harvest | I Inventory | B Build"
     if not is_on_floor():
         velocity.y -= gravity * delta
     elif Input.is_action_just_pressed("jump") or Input.is_physical_key_pressed(KEY_SPACE):
