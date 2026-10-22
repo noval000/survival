@@ -2,6 +2,8 @@ extends CharacterBody3D
 
 const INVENTORY_UI_SCRIPT = preload("res://scripts/InventoryUI.gd")
 const BUILDING_SCRIPT = preload("res://scripts/BuildingSystem.gd")
+const SURVIVAL_UI_SCRIPT = preload("res://scripts/SurvivalUI.gd")
+const SAVE_GAME = preload("res://scripts/SaveGame.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -26,6 +28,13 @@ var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal
 var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
 var inventory_ui: CanvasLayer
 var building: Node3D
+var survival_ui: CanvasLayer
+var health: float = 100.0
+var hunger: float = 100.0
+var thirst: float = 100.0
+var dead := false
+var survival_tick: float = 0.0
+var autosave_tick: float = 0.0
 var equipped_tool: String = "axe"
 var harvest_cooldown: float = 0.0
 var resource_label: Label
@@ -67,9 +76,22 @@ func _ready() -> void:
     building.name = "BuildingSystem"
     building.configure(self, camera, get_parent().get_node("IslandWorld"))
     get_parent().add_child.call_deferred(building)
+    survival_ui = SURVIVAL_UI_SCRIPT.new()
+    survival_ui.name = "SurvivalUI"
+    add_child(survival_ui)
+    survival_ui.respawn_requested.connect(respawn)
+    load_progress.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
+        if event.physical_keycode == KEY_F5:
+            save_progress()
+            return
+        if event.physical_keycode == KEY_F9:
+            load_progress()
+            return
+        if dead:
+            return
         if event.physical_keycode == KEY_I:
             var opened: bool = inventory_ui.toggle_inventory()
             Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if opened else Input.MOUSE_MODE_CAPTURED
@@ -118,6 +140,22 @@ func _unhandled_input(event: InputEvent) -> void:
         head.rotation.x = clampf(head.rotation.x, -1.35, 1.35)
 
 func _physics_process(delta: float) -> void:
+    survival_tick += delta
+    autosave_tick += delta
+    if survival_tick >= 1.0 and not dead:
+        var elapsed: float = survival_tick
+        survival_tick = 0.0
+        hunger = maxf(0.0, hunger - elapsed * 0.035)
+        thirst = maxf(0.0, thirst - elapsed * 0.06)
+        if hunger <= 0.0 or thirst <= 0.0:
+            take_damage(elapsed * 2.0)
+        survival_ui.update_stats(health, hunger, thirst)
+    if autosave_tick >= 60.0 and not dead:
+        autosave_tick = 0.0
+        save_progress()
+    if dead:
+        velocity = Vector3.ZERO
+        return
     harvest_cooldown = maxf(0.0, harvest_cooldown - delta)
     swing_time = maxf(0.0, swing_time - delta)
     feedback_remaining = maxf(0.0, feedback_remaining - delta)
@@ -346,3 +384,64 @@ func craft_item(recipe: String) -> void:
     sync_inventory()
     feedback_remaining = 1.5
     harvest_feedback.text = "Crafted: %s" % recipe
+
+func take_damage(amount: float) -> void:
+    if dead:
+        return
+    health = maxf(0.0, health - amount)
+    survival_ui.update_stats(health, hunger, thirst)
+    if health <= 0.0:
+        dead = true
+        building.set_active(false)
+        survival_ui.set_dead(true)
+        Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func respawn() -> void:
+    dead = false
+    health = 100.0
+    hunger = 75.0
+    thirst = 75.0
+    global_position = Vector3(0.0, 3.0, 0.0)
+    velocity = Vector3.ZERO
+    survival_ui.set_dead(false)
+    survival_ui.update_stats(health, hunger, thirst)
+    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    save_progress()
+
+func save_progress() -> void:
+    if building == null or not building.is_inside_tree():
+        return
+    if SAVE_GAME.save_game(self, building):
+        feedback_remaining = 1.5
+        harvest_feedback.text = "Game saved"
+
+func load_progress() -> void:
+    if building == null or not building.is_inside_tree():
+        return
+    var data: Dictionary = SAVE_GAME.load_game()
+    if data.is_empty():
+        return
+    var coords: Array = data.get("position", [])
+    if coords.size() == 3:
+        global_position = Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
+        velocity = Vector3.ZERO
+    var saved_resources: Dictionary = data.get("resources", {})
+    for key in resources:
+        resources[key] = maxi(0, int(saved_resources.get(key, 0)))
+    equipped_tool = str(data.get("equipped_tool", "axe"))
+    if equipped_tool not in ["axe", "pickaxe"]:
+        equipped_tool = "axe"
+    health = clampf(float(data.get("health", 100.0)), 1.0, 100.0)
+    hunger = clampf(float(data.get("hunger", 100.0)), 0.0, 100.0)
+    thirst = clampf(float(data.get("thirst", 100.0)), 0.0, 100.0)
+    dead = false
+    survival_ui.set_dead(false)
+    survival_ui.update_stats(health, hunger, thirst)
+    for child in building.get_children():
+        if child is StaticBody3D and child.name.begins_with("Built_"):
+            child.queue_free()
+    building.placed.clear()
+    var structures: Array = data.get("structures", [])
+    building.restore_structures(structures)
+    setup_tool()
+    sync_inventory()
