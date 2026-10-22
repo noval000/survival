@@ -168,3 +168,29 @@ func place_piece(resources: Dictionary) -> bool:
         body.add_child(collider)
     placed.append({"type": piece_type, "position": preview_position, "rotation": rotation_step})
     return true
+
+func restore_structures(structures: Array) -> void:
+    var previous_active: bool = active
+    var previous_type: String = piece_type
+    var previous_rotation: int = rotation_step
+    var previous_position: Vector3 = preview_position
+    for record in structures:
+        if typeof(record) != TYPE_DICTIONARY:
+            continue
+        var kind: String = str(record.get("type", ""))
+        var coords: Array = record.get("position", [])
+        if not COSTS.has(kind) or coords.size() != 3:
+            continue
+        piece_type = kind
+        rotation_step = posmod(int(record.get("rotation", 0)), 4)
+        preview_position = Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
+        ghost_valid = true
+        active = true
+        var free_materials: Dictionary = {"wood": 999999, "stone": 999999, "plank": 999999}
+        place_piece(free_materials)
+    active = previous_active
+    piece_type = previous_type
+    rotation_step = previous_rotation
+    preview_position = previous_position
+    refresh_preview()
+    set_active(previous_active)
