@@ -19,9 +19,9 @@ func _unhandled_input(event: InputEvent) -> void:
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
         # Ignore implausible driver spikes; never rotate 180 degrees on a single event.
-        var delta := event.relative.limit_length(45.0)
-        rotate_y(-delta.x * mouse_sensitivity)
-        head.rotate_x(-delta.y * mouse_sensitivity)
+        var mouse_delta: Vector2 = (event as InputEventMouseMotion).relative.limit_length(45.0)
+        rotate_y(-mouse_delta.x * mouse_sensitivity)
+        head.rotate_x(-mouse_delta.y * mouse_sensitivity)
         head.rotation.x = clampf(head.rotation.x, -1.35, 1.35)
 
 func _physics_process(delta: float) -> void:
