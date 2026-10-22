@@ -25,6 +25,7 @@ func _ready() -> void:
     create_water()
     create_vegetation()
     create_rocks()
+    create_grass()
 
 func height_at(x: float, z: float) -> float:
     var r := Vector2(x, z).length()
@@ -44,8 +45,8 @@ func create_terrain() -> void:
             var wz := (float(z) / CELLS - 0.5) * SIZE
             var h := height_at(wx, wz)
             vertices.append(Vector3(wx, h, wz))
-            var beach := 1.0 - smoothstep(52.0, 65.0, Vector2(wx, wz).length())
-            var base := Color(0.53, 0.48, 0.34).lerp(Color(0.26, 0.37, 0.23), beach)
+            var inland := 1.0 - smoothstep(49.0, 64.0, Vector2(wx, wz).length())
+            var base := Color(0.67, 0.59, 0.42).lerp(Color(0.26, 0.39, 0.24), inland)
             colors.append(base.lerp(Color(0.39, 0.40, 0.38), smoothstep(4.5, 8.0, h)))
     for z in range(CELLS):
         for x in range(CELLS):
@@ -261,3 +262,40 @@ func add_tree_collision(tree: Node3D) -> void:
     shape.position.y = 1.7
     body.add_child(shape)
     tree.add_child(body)
+
+# A single MultiMesh draw call for scattered grass, keeping the island
+# inexpensive on integrated graphics / the GL Compatibility renderer.
+func create_grass() -> void:
+    var rng := RandomNumberGenerator.new()
+    rng.seed = 24813
+    var blade := QuadMesh.new()
+    blade.size = Vector2(0.22, 0.64)
+    var grass_material := StandardMaterial3D.new()
+    grass_material.albedo_color = Color(0.31, 0.46, 0.22)
+    grass_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    grass_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    blade.material = grass_material
+    var transforms: Array[Transform3D] = []
+    for i in range(4500):
+        var x: float = rng.randf_range(-61.0, 61.0)
+        var z: float = rng.randf_range(-61.0, 61.0)
+        var radius: float = Vector2(x, z).length()
+        if radius < 9.0 or radius > 53.0:
+            continue
+        var h: float = height_at(x, z)
+        if h < 0.4:
+            continue
+        var yaw: float = rng.randf_range(0.0, TAU)
+        var scale_factor: float = rng.randf_range(0.55, 1.25)
+        var basis := Basis(Vector3.UP, yaw).scaled(Vector3(scale_factor, scale_factor, scale_factor))
+        transforms.append(Transform3D(basis, Vector3(x, h + 0.26 * scale_factor, z)))
+    var multimesh := MultiMesh.new()
+    multimesh.transform_format = MultiMesh.TRANSFORM_3D
+    multimesh.mesh = blade
+    multimesh.instance_count = transforms.size()
+    for i in range(transforms.size()):
+        multimesh.set_instance_transform(i, transforms[i])
+    var grass := MultiMeshInstance3D.new()
+    grass.name = "InstancedGrass"
+    grass.multimesh = multimesh
+    add_child(grass)
