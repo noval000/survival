@@ -110,6 +110,26 @@ func create_water() -> void:
 # Procedural trees are an intentionally lightweight fallback when heavy Meshy
 # assets are absent or disabled due to editor crashes.
 var model_cache: Dictionary = {}
+var lod_trees: Array[Dictionary] = []
+var lod_player: Node3D
+var lod_elapsed: float = 0.0
+
+func _process(delta: float) -> void:
+    lod_elapsed += delta
+    if lod_elapsed < 0.35:
+        return
+    lod_elapsed = 0.0
+    if lod_player == null:
+        lod_player = get_node_or_null("../Player") as Node3D
+    if lod_player == null:
+        return
+    for entry in lod_trees:
+        var near_tree: Node3D = entry["near"]
+        var far_tree: Node3D = entry["far"]
+        var distance_squared: float = lod_player.global_position.distance_squared_to(near_tree.global_position)
+        var use_far: bool = distance_squared > 35.0 * 35.0
+        near_tree.visible = not use_far
+        far_tree.visible = use_far
 
 func create_vegetation() -> void:
     var rng := RandomNumberGenerator.new()
@@ -130,6 +150,15 @@ func create_vegetation() -> void:
         tree.position = Vector3(x, height_at(x, z) - 0.12, z)
         tree.rotation.y = rng.randf_range(0.0, TAU)
         add_child(tree)
+        if tree.get_node_or_null("TrunkCollision") != null:
+            var far_tree: Node3D = instantiate_tree_lod(kind, 2)
+            if far_tree != null:
+                fit_model_height(far_tree, 7.0)
+                far_tree.position = tree.position
+                far_tree.rotation = tree.rotation
+                far_tree.visible = false
+                add_child(far_tree)
+                lod_trees.append({"near": tree, "far": far_tree})
     for point in [Vector2(-38.0, -34.0), Vector2(41.0, -38.0)]:
         var mountain: Node3D = instantiate_model("mountain")
         if mountain != null:
@@ -305,3 +334,16 @@ func create_grass() -> void:
     grass.name = "InstancedGrass"
     grass.multimesh = multimesh
     add_child(grass)
+
+# Optional distance LOD: use imported LOD2 only when the corresponding GLB
+# exists. Never load a missing model and never duplicate physics colliders.
+func instantiate_tree_lod(kind: String, level: int) -> Node3D:
+    var path: String = "res://assets/models/trees/%s_01_lod%d.glb" % [kind, level]
+    if not ResourceLoader.exists(path):
+        return null
+    if not model_cache.has(path):
+        model_cache[path] = load(path) as PackedScene
+    var scene: PackedScene = model_cache[path] as PackedScene
+    if scene == null:
+        return null
+    return scene.instantiate() as Node3D
