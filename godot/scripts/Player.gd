@@ -24,7 +24,7 @@ var was_grounded: bool = false
 var last_vertical_speed: float = 0.0
 var step_distance: float = 0.0
 var footstep: AudioStreamPlayer
-var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0}
+var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0, "berries": 0, "bandage": 0}
 var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
 var inventory_ui: CanvasLayer
 var building: Node3D
@@ -71,6 +71,7 @@ func _ready() -> void:
     inventory_ui.name = "InventoryUI"
     add_child(inventory_ui)
     inventory_ui.craft_requested.connect(craft_item)
+    inventory_ui.consumable_requested.connect(use_consumable)
     sync_inventory()
     building = BUILDING_SCRIPT.new()
     building.name = "BuildingSystem"
@@ -84,6 +85,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
+        if event.physical_keycode == KEY_E and not inventory_ui.is_open():
+            try_interact()
+            return
         if event.physical_keycode == KEY_F5:
             save_progress()
             return
@@ -194,8 +198,12 @@ func _physics_process(delta: float) -> void:
     var accel := 15.0 if is_on_floor() else 4.0
     velocity.x = move_toward(velocity.x, wish.x * speed, accel * delta)
     velocity.z = move_toward(velocity.z, wish.z * speed, accel * delta)
+    var fall_speed: float = velocity.y
+    var previously_grounded: bool = is_on_floor()
     last_vertical_speed = velocity.y
     move_and_slide()
+    if is_on_floor() and not previously_grounded and fall_speed < -12.0:
+        take_damage((absf(fall_speed) - 12.0) * 4.0)
     animate_movement(delta, running)
     if status_label != null:
         status_label.text = "WASD move | SPACE jump | SHIFT sprint | ESC mouse\\nInput: %s  Floor: %s  Pos: (%.1f, %.1f, %.1f)  Velocity: (%.1f, %.1f, %.1f)" % [str(axis), str(is_on_floor()), global_position.x, global_position.y, global_position.z, velocity.x, velocity.y, velocity.z]
@@ -362,6 +370,8 @@ func craft_item(recipe: String) -> void:
         costs = {"wood": 5}
     elif recipe == "iron_bar":
         costs = {"iron": 3, "coal": 2}
+    elif recipe == "bandage":
+        costs = {"berries": 3, "plank": 2}
     elif recipe == "axe":
         costs = {"wood": 10, "stone": 5}
     elif recipe == "pickaxe":
@@ -377,6 +387,8 @@ func craft_item(recipe: String) -> void:
         resources["plank"] = int(resources.get("plank", 0)) + 2
     elif recipe == "iron_bar":
         resources["iron_bar"] = int(resources.get("iron_bar", 0)) + 1
+    elif recipe == "bandage":
+        resources["bandage"] = int(resources.get("bandage", 0)) + 1
     else:
         owned_tools[recipe] = true
         equipped_tool = recipe
@@ -445,3 +457,47 @@ func load_progress() -> void:
     building.restore_structures(structures)
     setup_tool()
     sync_inventory()
+
+func try_interact() -> void:
+    var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 4.0)
+    query.collide_with_areas = true
+    query.exclude = [get_rid()]
+    var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty():
+        return
+    var target: Node = hit.get("collider") as Node
+    if target == null or not target.is_in_group("survival_interactable"):
+        return
+    var kind: String = str(target.get_meta("interaction", ""))
+    if kind == "berries":
+        var quantity: int = int(target.get_meta("quantity", 0))
+        if quantity <= 0:
+            return
+        resources["berries"] = int(resources.get("berries", 0)) + quantity
+        target.set_meta("quantity", 0)
+        target.visible = false
+        target.set_deferred("monitorable", false)
+        show_message("+%d berries" % quantity)
+        sync_inventory()
+    elif kind == "water":
+        thirst = minf(100.0, thirst + 45.0)
+        survival_ui.update_stats(health, hunger, thirst)
+        show_message("Drank fresh water +45 thirst")
+
+func use_consumable(kind: String) -> void:
+    if dead or int(resources.get(kind, 0)) <= 0:
+        return
+    if kind == "berries":
+        hunger = minf(100.0, hunger + 25.0)
+    elif kind == "bandage":
+        health = minf(100.0, health + 35.0)
+    else:
+        return
+    resources[kind] = int(resources[kind]) - 1
+    survival_ui.update_stats(health, hunger, thirst)
+    sync_inventory()
+    show_message("Used: " + kind)
+
+func show_message(message: String) -> void:
+    feedback_remaining = 1.6
+    harvest_feedback.text = message
