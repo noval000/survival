@@ -5,6 +5,7 @@ extends Node3D
 const SIZE := 144.0
 const CELLS := 96
 const SEA_LEVEL := 0.0
+const HARVESTABLE_SCRIPT = preload("res://scripts/Harvestable.gd")
 const MODEL_PATHS := {
     "pine": "res://assets/models/trees/pine_01_lod0.glb",
     "spruce": "res://assets/models/trees/spruce_01_lod0.glb",
@@ -245,6 +246,10 @@ func create_rocks() -> void:
         rock.position = Vector3(x, height_at(x, z) + size * 0.17, z)
         add_child(rock)
         var body := StaticBody3D.new()
+        body.set_script(HARVESTABLE_SCRIPT)
+        body.set("resource_type", "stone")
+        body.set("max_health", 80)
+        body.set("yield_amount", 18)
         body.position = rock.position
         var shape := CollisionShape3D.new()
         var sphere := SphereShape3D.new()
@@ -252,6 +257,8 @@ func create_rocks() -> void:
         shape.shape = sphere
         body.add_child(shape)
         add_child(body)
+        rock.set_meta("harvest_body", body)
+        body.set_meta("visual", rock)
 
 func instantiate_model(kind: String) -> Node3D:
     var path: String = MODEL_PATHS[kind]
@@ -305,6 +312,11 @@ func add_tree_collision(tree: Node3D, tree_height: float) -> void:
     # switches to a distant mesh.
     var body := StaticBody3D.new()
     body.name = "TrunkCollision"
+    body.set_script(HARVESTABLE_SCRIPT)
+    body.set("resource_type", "wood")
+    body.set("max_health", 100)
+    body.set("yield_amount", 25)
+    body.set_meta("visual", tree)
     body.position = tree.position
     body.rotation = tree.rotation
     var shape := CollisionShape3D.new()
