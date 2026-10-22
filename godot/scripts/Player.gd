@@ -25,6 +25,8 @@ var harvest_cooldown: float = 0.0
 var resource_label: Label
 var tool_visual: Node3D
 var swing_time: float = 0.0
+var harvest_feedback: Label
+var feedback_remaining: float = 0.0
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -42,6 +44,10 @@ func _ready() -> void:
     resource_label.position = Vector2(20, 90)
     resource_label.add_theme_font_size_override("font_size", 19)
     hud.add_child(resource_label)
+    harvest_feedback = Label.new()
+    harvest_feedback.position = Vector2(20, 150)
+    harvest_feedback.add_theme_font_size_override("font_size", 20)
+    hud.add_child(harvest_feedback)
     camera_home = camera.position
     setup_arms()
     setup_footstep()
@@ -69,6 +75,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
     harvest_cooldown = maxf(0.0, harvest_cooldown - delta)
     swing_time = maxf(0.0, swing_time - delta)
+    feedback_remaining = maxf(0.0, feedback_remaining - delta)
+    if feedback_remaining <= 0.0 and harvest_feedback != null:
+        harvest_feedback.text = ""
     if tool_visual != null:
         var swing: float = sin((1.0 - swing_time / 0.4) * PI) if swing_time > 0.0 else 0.0
         tool_visual.rotation.x = lerpf(tool_visual.rotation.x, -0.4 - swing, minf(delta * 20.0, 1.0))
@@ -199,10 +208,20 @@ func try_harvest() -> void:
     var result: Dictionary = target.call("harvest", equipped_tool, 25)
     for kind in result:
         resources[kind] = int(resources.get(kind, 0)) + int(result[kind])
+        feedback_remaining = 1.25
+        harvest_feedback.text = "+%d %s" % [int(result[kind]), str(kind)]
     if bool(target.get("depleted")):
         var visual: Node3D = target.get_meta("visual", null) as Node3D
         if visual != null:
             visual.visible = false
+        var world: Node = get_parent().get_node_or_null("IslandWorld")
+        if world != null:
+            var entries: Array = world.get("lod_trees")
+            for entry in entries:
+                if entry["near"] == visual:
+                    entry["depleted"] = true
+                    var distant: Node3D = entry["far"]
+                    distant.visible = false
 
 func setup_tool() -> void:
     if arm_root == null:
