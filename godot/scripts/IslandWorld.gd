@@ -206,19 +206,23 @@ func instantiate_model(kind: String) -> Node3D:
 
 # Meshy exports often have arbitrary units/pivots. Normalize based on the
 # actual mesh bounds (including nested node transforms) before placement.
-func collect_mesh_bounds(node: Node, relative_to: Node3D, result: Array[AABB]) -> void:
+# Local transforms are available before a node enters the scene tree.
+# Never access global_transform while normalizing imported PackedScenes.
+func collect_mesh_bounds(node: Node, parent_transform: Transform3D, result: Array[AABB]) -> void:
+    var current_transform: Transform3D = parent_transform
+    if node is Node3D:
+        current_transform = parent_transform * (node as Node3D).transform
     if node is MeshInstance3D:
         var part: MeshInstance3D = node as MeshInstance3D
         if part.mesh != null:
-            var box: AABB = part.get_aabb()
-            var transform_to_root: Transform3D = relative_to.global_transform.affine_inverse() * part.global_transform
-            result.append(transform_to_root * box)
+            result.append(current_transform * part.get_aabb())
     for child in node.get_children():
-        collect_mesh_bounds(child, relative_to, result)
+        collect_mesh_bounds(child, current_transform, result)
 
 func fit_model_height(model: Node3D, target_height: float) -> void:
     var boxes: Array[AABB] = []
-    collect_mesh_bounds(model, model, boxes)
+    for child in model.get_children():
+        collect_mesh_bounds(child, Transform3D.IDENTITY, boxes)
     if boxes.is_empty():
         return
     var bounds: AABB = boxes[0]
@@ -227,17 +231,13 @@ func fit_model_height(model: Node3D, target_height: float) -> void:
     if bounds.size.y < 0.001:
         return
     var factor: float = target_height / bounds.size.y
+    # Keep the imported scene hierarchy and ownership untouched.
+    # The offset is in original model units, before scaling.
+    for child in model.get_children():
+        if child is Node3D:
+            var spatial_child: Node3D = child as Node3D
+            spatial_child.position -= Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
     model.scale = Vector3.ONE * factor
-    # Shift the imported model so its lowest point sits on the terrain.
-    # The wrapper keeps world placement independent of the original GLB pivot.
-    var visual: Node3D = Node3D.new()
-    visual.name = "NormalizedVisual"
-    var children: Array[Node] = model.get_children()
-    for child in children:
-        model.remove_child(child)
-        visual.add_child(child)
-    model.add_child(visual)
-    visual.position = Vector3(0.0, -bounds.position.y, 0.0)
 
 func add_tree_collision(tree: Node3D) -> void:
     var body := StaticBody3D.new()
