@@ -93,17 +93,25 @@ func create_terrain() -> void:
     add_child(body)
 
 func create_water() -> void:
+    # Subdivisions allow the low-cost vertex shader to animate gentle waves.
     var plane := PlaneMesh.new()
     plane.size = Vector2(450.0, 450.0)
+    plane.subdivide_width = 100
+    plane.subdivide_depth = 100
     var water := MeshInstance3D.new()
     water.name = "Sea"
     water.mesh = plane
     water.position.y = SEA_LEVEL - 0.35
-    var material := StandardMaterial3D.new()
-    material.albedo_color = Color(0.07, 0.33, 0.46, 0.84)
-    material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-    material.roughness = 0.24
-    water.material_override = material
+    var ocean_shader: Shader = load("res://shaders/ocean.gdshader") as Shader
+    if ocean_shader != null:
+        var ocean_material := ShaderMaterial.new()
+        ocean_material.shader = ocean_shader
+        water.material_override = ocean_material
+    else:
+        var fallback := StandardMaterial3D.new()
+        fallback.albedo_color = Color(0.07, 0.33, 0.46)
+        fallback.roughness = 0.25
+        water.material_override = fallback
     add_child(water)
 
 # Reuse one imported GLB resource per tree type instead of reloading on each spawn.
@@ -130,9 +138,6 @@ func _process(delta: float) -> void:
         var use_far: bool = distance_squared > 35.0 * 35.0
         near_tree.visible = not use_far
         far_tree.visible = use_far
-        var trunk_body: StaticBody3D = near_tree.get_node_or_null("TrunkCollision") as StaticBody3D
-        if trunk_body != null:
-            trunk_body.process_mode = Node.PROCESS_MODE_ALWAYS
 
 func create_vegetation() -> void:
     var rng := RandomNumberGenerator.new()
@@ -150,11 +155,13 @@ func create_vegetation() -> void:
         else:
             var target_height: float = rng.randf_range(5.5, 8.5)
             fit_model_height(tree, target_height)
-            add_tree_collision(tree, target_height)
+            tree.set_meta("trunk_height", target_height)
         tree.position = Vector3(x, height_at(x, z) - 0.12, z)
         tree.rotation.y = rng.randf_range(0.0, TAU)
         add_child(tree)
-        if tree.get_node_or_null("TrunkCollision") != null:
+        if tree.has_meta("trunk_height"):
+            add_tree_collision(tree, float(tree.get_meta("trunk_height")))
+        if tree.has_meta("trunk_height"):
             var far_tree: Node3D = instantiate_tree_lod(kind, 2)
             if far_tree != null:
                 # Both variants must share exactly the same world-space bounds.
@@ -294,10 +301,12 @@ func fit_model_height(model: Node3D, target_height: float) -> void:
     model.set_meta("target_height", target_height)
 
 func add_tree_collision(tree: Node3D, tree_height: float) -> void:
-    # Keep collision outside the imported visual hierarchy so that
-    # switching LOD visibility cannot hide or alter the physical trunk.
+    # Independent sibling collider: never hide physics when the visual LOD
+    # switches to a distant mesh.
     var body := StaticBody3D.new()
     body.name = "TrunkCollision"
+    body.position = tree.position
+    body.rotation = tree.rotation
     var shape := CollisionShape3D.new()
     var trunk := CylinderShape3D.new()
     trunk.radius = clampf(tree_height * 0.055, 0.28, 0.52)
@@ -305,10 +314,7 @@ func add_tree_collision(tree: Node3D, tree_height: float) -> void:
     shape.shape = trunk
     shape.position.y = trunk.height * 0.5
     body.add_child(shape)
-    tree.add_child(body)
-    # The model is normalized with root scale, but the collider must stay
-    # in world units rather than inherit that arbitrary Meshy scale.
-    body.scale = Vector3.ONE / tree.scale
+    add_child(body)
 
 # A single MultiMesh draw call for scattered grass, keeping the island
 # inexpensive on integrated graphics / the GL Compatibility renderer.
