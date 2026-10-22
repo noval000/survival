@@ -6,6 +6,7 @@ const SIZE := 144.0
 const CELLS := 96
 const SEA_LEVEL := 0.0
 const HARVESTABLE_SCRIPT = preload("res://scripts/Harvestable.gd")
+const MINE_SCRIPT = preload("res://scripts/MineWorld.gd")
 const MODEL_PATHS := {
     "pine": "res://assets/models/trees/pine_01_lod0.glb",
     "spruce": "res://assets/models/trees/spruce_01_lod0.glb",
@@ -27,6 +28,10 @@ func _ready() -> void:
     create_vegetation()
     create_rocks()
     create_grass()
+    var mine := MINE_SCRIPT.new()
+    mine.name = "MineWorld"
+    mine.configure(self)
+    add_child(mine)
 
 func height_at(x: float, z: float) -> float:
     var r := Vector2(x, z).length()
