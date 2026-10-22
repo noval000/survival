@@ -120,6 +120,7 @@ func place_piece(resources: Dictionary) -> bool:
         resources[material] = int(resources.get(material, 0)) - int(cost[material])
     var body := StaticBody3D.new()
     body.name = "Built_" + piece_type
+    add_child(body)
     body.global_position = preview_position
     body.rotation.y = float(rotation_step) * PI * 0.5
     var mesh := BoxMesh.new()
@@ -129,12 +130,41 @@ func place_piece(resources: Dictionary) -> bool:
     var material := StandardMaterial3D.new()
     material.albedo_color = Color(0.39, 0.27, 0.16) if piece_type != "foundation" else Color(0.42, 0.41, 0.37)
     view.material_override = material
-    body.add_child(view)
-    var collider := CollisionShape3D.new()
-    var shape := BoxShape3D.new()
-    shape.size = SIZES[piece_type]
-    collider.shape = shape
-    body.add_child(collider)
-    add_child(body)
+    if piece_type != "doorway":
+        body.add_child(view)
+    else:
+        for side in [-1.0, 1.0]:
+            var post := MeshInstance3D.new()
+            var post_mesh := BoxMesh.new()
+            post_mesh.size = Vector3(0.52, 2.8, 0.20)
+            post.mesh = post_mesh
+            post.material_override = material
+            post.position.x = side * 1.24
+            body.add_child(post)
+            var post_shape := CollisionShape3D.new()
+            var post_box := BoxShape3D.new()
+            post_box.size = post_mesh.size
+            post_shape.shape = post_box
+            post_shape.position = post.position
+            body.add_child(post_shape)
+        var lintel := MeshInstance3D.new()
+        var lintel_mesh := BoxMesh.new()
+        lintel_mesh.size = Vector3(3.0, 0.48, 0.20)
+        lintel.mesh = lintel_mesh
+        lintel.material_override = material
+        lintel.position.y = 1.16
+        body.add_child(lintel)
+        var lintel_shape := CollisionShape3D.new()
+        var lintel_box := BoxShape3D.new()
+        lintel_box.size = lintel_mesh.size
+        lintel_shape.shape = lintel_box
+        lintel_shape.position = lintel.position
+        body.add_child(lintel_shape)
+    if piece_type != "doorway":
+        var collider := CollisionShape3D.new()
+        var shape := BoxShape3D.new()
+        shape.size = SIZES[piece_type]
+        collider.shape = shape
+        body.add_child(collider)
     placed.append({"type": piece_type, "position": preview_position, "rotation": rotation_step})
     return true
