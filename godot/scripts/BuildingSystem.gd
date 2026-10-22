@@ -1,0 +1,140 @@
+extends Node3D
+
+# Grid-snapped construction with material costs and persistent physics.
+const GRID := 3.0
+const COSTS := {
+    "foundation": {"wood": 20, "stone": 10},
+    "wall": {"plank": 4},
+    "doorway": {"plank": 3},
+    "roof": {"plank": 6}
+}
+const SIZES := {
+    "foundation": Vector3(3.0, 0.25, 3.0),
+    "wall": Vector3(3.0, 2.8, 0.20),
+    "doorway": Vector3(3.0, 2.8, 0.20),
+    "roof": Vector3(3.0, 0.22, 3.0)
+}
+var player: CharacterBody3D
+var camera: Camera3D
+var world: Node3D
+var active := false
+var piece_type := "foundation"
+var rotation_step := 0
+var ghost: MeshInstance3D
+var ghost_valid := false
+var preview_position := Vector3.ZERO
+var placed: Array[Dictionary] = []
+var green := StandardMaterial3D.new()
+var red := StandardMaterial3D.new()
+
+func configure(p: CharacterBody3D, cam: Camera3D, island: Node3D) -> void:
+    player = p
+    camera = cam
+    world = island
+
+func _ready() -> void:
+    green.albedo_color = Color(0.12, 0.90, 0.34, 0.45)
+    red.albedo_color = Color(0.95, 0.15, 0.14, 0.45)
+    green.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    red.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    green.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    red.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    ghost = MeshInstance3D.new()
+    ghost.name = "BuildPreview"
+    ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    add_child(ghost)
+    set_active(false)
+
+func set_active(value: bool) -> void:
+    active = value
+    if ghost != null:
+        ghost.visible = active
+    if active:
+        refresh_preview()
+
+func choose_piece(kind: String) -> void:
+    if not COSTS.has(kind):
+        return
+    piece_type = kind
+    refresh_preview()
+
+func rotate_piece() -> void:
+    rotation_step = (rotation_step + 1) % 4
+    refresh_preview()
+
+func refresh_preview() -> void:
+    if ghost == null:
+        return
+    var mesh := BoxMesh.new()
+    mesh.size = SIZES[piece_type]
+    ghost.mesh = mesh
+
+func _physics_process(_delta: float) -> void:
+    if not active or camera == null or world == null:
+        return
+    var ray := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 7.0)
+    ray.exclude = [player.get_rid()]
+    var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+    ghost_valid = false
+    if hit.is_empty():
+        ghost.visible = false
+        return
+    ghost.visible = true
+    var location: Vector3 = hit["position"]
+    var x: float = roundf(location.x / GRID) * GRID
+    var z: float = roundf(location.z / GRID) * GRID
+    var ground: float = float(world.call("height_at", x, z))
+    var foundation_y: float = ground + 0.15
+    var supported := false
+    if piece_type != "foundation":
+        for item in placed:
+            if item["type"] == "foundation" and Vector2(item["position"].x, item["position"].z).distance_to(Vector2(x, z)) < 0.2:
+                foundation_y = item["position"].y
+                supported = true
+                break
+    if piece_type == "foundation":
+        preview_position = Vector3(x, foundation_y, z)
+    elif piece_type == "roof":
+        preview_position = Vector3(x, foundation_y + 2.95, z)
+    else:
+        preview_position = Vector3(x, foundation_y + 1.52, z)
+    ghost.global_position = preview_position
+    ghost.rotation.y = float(rotation_step) * PI * 0.5
+    var close_enough: bool = player.global_position.distance_to(preview_position) <= 8.0
+    var empty: bool = true
+    for item in placed:
+        if item["type"] == piece_type and item["position"].distance_to(preview_position) < 0.25:
+            empty = false
+            break
+    ghost_valid = close_enough and empty and (piece_type == "foundation" or supported)
+    ghost.material_override = green if ghost_valid else red
+
+func place_piece(resources: Dictionary) -> bool:
+    if not active or not ghost_valid:
+        return false
+    var cost: Dictionary = COSTS[piece_type]
+    for material in cost:
+        if int(resources.get(material, 0)) < int(cost[material]):
+            return false
+    for material in cost:
+        resources[material] = int(resources.get(material, 0)) - int(cost[material])
+    var body := StaticBody3D.new()
+    body.name = "Built_" + piece_type
+    body.global_position = preview_position
+    body.rotation.y = float(rotation_step) * PI * 0.5
+    var mesh := BoxMesh.new()
+    mesh.size = SIZES[piece_type]
+    var view := MeshInstance3D.new()
+    view.mesh = mesh
+    var material := StandardMaterial3D.new()
+    material.albedo_color = Color(0.39, 0.27, 0.16) if piece_type != "foundation" else Color(0.42, 0.41, 0.37)
+    view.material_override = material
+    body.add_child(view)
+    var collider := CollisionShape3D.new()
+    var shape := BoxShape3D.new()
+    shape.size = SIZES[piece_type]
+    collider.shape = shape
+    body.add_child(collider)
+    add_child(body)
+    placed.append({"type": piece_type, "position": preview_position, "rotation": rotation_step})
+    return true
