@@ -8,8 +8,8 @@ const SEA_LEVEL := 0.0
 const MODEL_PATHS := {
     "pine": "res://assets/models/trees/pine_01_lod0.glb",
     "spruce": "res://assets/models/trees/spruce_01_lod0.glb",
-    "mountain": "res://assets/models/rocky_mountain_01.glb",
-    "cliff": "res://assets/models/cliff_01.glb"
+    "mountain": "res://assets/models/rocks/rocky_mountain_01.glb",
+    "cliff": "res://assets/models/rocks/cliff_01.glb"
 }
 var terrain_noise := FastNoiseLite.new()
 var detail_noise := FastNoiseLite.new()
@@ -106,6 +106,9 @@ func create_vegetation() -> void:
         var tree: Node3D = instantiate_model(kind)
         if tree == null:
             tree = make_fallback_tree(rng)
+        else:
+            fit_model_height(tree, rng.randf_range(5.5, 8.5))
+            add_tree_collision(tree)
         tree.position = Vector3(x, height_at(x, z) - 0.12, z)
         tree.rotation.y = rng.randf_range(0.0, TAU)
         add_child(tree)
@@ -113,7 +116,7 @@ func create_vegetation() -> void:
         var mountain: Node3D = instantiate_model("mountain")
         if mountain != null:
             mountain.position = Vector3(point.x, height_at(point.x, point.y) - 1.0, point.y)
-            mountain.scale = Vector3.ONE * 9.0
+            fit_model_height(mountain, 13.0)
             add_child(mountain)
 
 func make_fallback_tree(rng: RandomNumberGenerator) -> Node3D:
@@ -200,3 +203,50 @@ func instantiate_model(kind: String) -> Node3D:
     if scene == null:
         return null
     return scene.instantiate() as Node3D
+
+# Meshy exports often have arbitrary units/pivots. Normalize based on the
+# actual mesh bounds (including nested node transforms) before placement.
+func collect_mesh_bounds(node: Node, relative_to: Node3D, result: Array[AABB]) -> void:
+    if node is MeshInstance3D:
+        var part: MeshInstance3D = node as MeshInstance3D
+        if part.mesh != null:
+            var box: AABB = part.get_aabb()
+            var transform_to_root: Transform3D = relative_to.global_transform.affine_inverse() * part.global_transform
+            result.append(transform_to_root * box)
+    for child in node.get_children():
+        collect_mesh_bounds(child, relative_to, result)
+
+func fit_model_height(model: Node3D, target_height: float) -> void:
+    var boxes: Array[AABB] = []
+    collect_mesh_bounds(model, model, boxes)
+    if boxes.is_empty():
+        return
+    var bounds: AABB = boxes[0]
+    for i in range(1, boxes.size()):
+        bounds = bounds.merge(boxes[i])
+    if bounds.size.y < 0.001:
+        return
+    var factor: float = target_height / bounds.size.y
+    model.scale = Vector3.ONE * factor
+    # Shift the imported model so its lowest point sits on the terrain.
+    # The wrapper keeps world placement independent of the original GLB pivot.
+    var visual: Node3D = Node3D.new()
+    visual.name = "NormalizedVisual"
+    var children: Array[Node] = model.get_children()
+    for child in children:
+        model.remove_child(child)
+        visual.add_child(child)
+    model.add_child(visual)
+    visual.position = Vector3(0.0, -bounds.position.y, 0.0)
+
+func add_tree_collision(tree: Node3D) -> void:
+    var body := StaticBody3D.new()
+    body.name = "TrunkCollision"
+    var shape := CollisionShape3D.new()
+    var trunk := CylinderShape3D.new()
+    trunk.radius = 0.30
+    trunk.height = 3.4
+    shape.shape = trunk
+    shape.position.y = 1.7
+    body.add_child(shape)
+    tree.add_child(body)
