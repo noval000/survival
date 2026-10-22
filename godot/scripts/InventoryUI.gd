@@ -2,8 +2,9 @@ extends CanvasLayer
 
 signal craft_requested(recipe: String)
 signal tool_selected(tool: String)
+signal consumable_requested(kind: String)
 
-var inventory: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0}
+var inventory: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0, "berries": 0, "bandage": 0}
 var tools: Dictionary = {"axe": true, "pickaxe": true}
 var current_tool: String = "axe"
 var panel: PanelContainer
@@ -43,11 +44,16 @@ func _ready() -> void:
     recipes.text = "CRAFTING"
     recipes.add_theme_font_size_override("font_size", 20)
     content.add_child(recipes)
-    for recipe in ["plank", "axe", "pickaxe", "iron_bar"]:
+    for recipe in ["plank", "axe", "pickaxe", "iron_bar", "bandage"]:
         var button := Button.new()
         button.pressed.connect(_on_craft.bind(recipe))
         recipe_buttons[recipe] = button
         content.add_child(button)
+    for kind in ["berries", "bandage"]:
+        var consume := Button.new()
+        consume.name = "Consume_" + kind
+        consume.pressed.connect(func() -> void: consumable_requested.emit(kind))
+        content.add_child(consume)
     hint_text = Label.new()
     hint_text.text = "1 Axe  |  2 Pickaxe  |  LMB Harvest"
     content.add_child(hint_text)
@@ -78,6 +84,16 @@ func refresh() -> void:
     if resource_text == null:
         return
     resource_text.text = "Wood: %d   Stone: %d   Planks: %d\nIron: %d   Coal: %d   Iron bars: %d" % [int(inventory.get("wood", 0)), int(inventory.get("stone", 0)), int(inventory.get("plank", 0)), int(inventory.get("iron", 0)), int(inventory.get("coal", 0)), int(inventory.get("iron_bar", 0))]
+    resource_text.text += "\nBerries: %d   Bandages: %d" % [int(inventory.get("berries", 0)), int(inventory.get("bandage", 0))]
+    var berry_button: Button = resource_text.get_parent().get_node("Consume_berries")
+    berry_button.text = "Eat berries (+25 hunger)  [%d]" % int(inventory.get("berries", 0))
+    berry_button.disabled = int(inventory.get("berries", 0)) <= 0
+    var bandage_use: Button = resource_text.get_parent().get_node("Consume_bandage")
+    bandage_use.text = "Use bandage (+35 health)  [%d]" % int(inventory.get("bandage", 0))
+    bandage_use.disabled = int(inventory.get("bandage", 0)) <= 0
+    var craft_bandage: Button = recipe_buttons["bandage"]
+    craft_bandage.text = "Craft bandage (3 berries, 2 planks)"
+    craft_bandage.disabled = int(inventory.get("berries", 0)) < 3 or int(inventory.get("plank", 0)) < 2
     var smelt_button: Button = recipe_buttons["iron_bar"]
     smelt_button.text = "Smelt iron bar  (3 iron, 2 coal)"
     smelt_button.disabled = int(inventory.get("iron", 0)) < 3 or int(inventory.get("coal", 0)) < 2
