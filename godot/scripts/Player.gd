@@ -9,6 +9,16 @@ extends CharacterBody3D
 @onready var camera: Camera3D = $Head/Camera3D
 var gravity := 18.0
 var status_label: Label
+var arm_root: Node3D
+var left_arm: Node3D
+var right_arm: Node3D
+var camera_home: Vector3
+var gait_time: float = 0.0
+var landing: float = 0.0
+var was_grounded: bool = false
+var last_vertical_speed: float = 0.0
+var step_distance: float = 0.0
+var footstep: AudioStreamPlayer
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -22,6 +32,9 @@ func _ready() -> void:
     status_label.add_theme_constant_override("shadow_offset_x", 2)
     status_label.add_theme_constant_override("shadow_offset_y", 2)
     hud.add_child(status_label)
+    camera_home = camera.position
+    setup_arms()
+    setup_footstep()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -47,10 +60,100 @@ func _physics_process(delta: float) -> void:
     if axis == Vector2.ZERO:
         axis = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
     var wish := (global_transform.basis * Vector3(axis.x, 0.0, axis.y)).normalized()
-    var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+    var running: bool = Input.is_action_pressed("sprint") or Input.is_physical_key_pressed(KEY_SHIFT)
+    var speed := sprint_speed if running else walk_speed
     var accel := 15.0 if is_on_floor() else 4.0
     velocity.x = move_toward(velocity.x, wish.x * speed, accel * delta)
     velocity.z = move_toward(velocity.z, wish.z * speed, accel * delta)
+    last_vertical_speed = velocity.y
     move_and_slide()
+    animate_movement(delta, running)
     if status_label != null:
         status_label.text = "WASD move | SPACE jump | SHIFT sprint | ESC mouse\\nInput: %s  Floor: %s  Pos: (%.1f, %.1f, %.1f)  Velocity: (%.1f, %.1f, %.1f)" % [str(axis), str(is_on_floor()), global_position.x, global_position.y, global_position.z, velocity.x, velocity.y, velocity.z]
+
+func setup_arms() -> void:
+    arm_root = Node3D.new()
+    arm_root.name = "FPSViewmodel"
+    camera.add_child(arm_root)
+    var sleeve := StandardMaterial3D.new()
+    sleeve.albedo_color = Color(0.23, 0.30, 0.27)
+    var glove := StandardMaterial3D.new()
+    glove.albedo_color = Color(0.37, 0.28, 0.20)
+    left_arm = make_arm(-1.0, sleeve, glove)
+    right_arm = make_arm(1.0, sleeve, glove)
+
+func make_arm(side: float, sleeve: Material, glove: Material) -> Node3D:
+    var pivot := Node3D.new()
+    pivot.name = "LeftArm" if side < 0.0 else "RightArm"
+    pivot.position = Vector3(side * 0.40, -0.40, -0.70)
+    pivot.rotation = Vector3(-0.4, side * 0.2, side * 0.15)
+    arm_root.add_child(pivot)
+    var mesh := CylinderMesh.new()
+    mesh.top_radius = 0.10
+    mesh.bottom_radius = 0.14
+    mesh.height = 0.57
+    var sleeve_mesh := MeshInstance3D.new()
+    sleeve_mesh.mesh = mesh
+    sleeve_mesh.material_override = sleeve
+    sleeve_mesh.position = Vector3(0.0, -0.13, -0.12)
+    sleeve_mesh.rotation.x = 1.0
+    pivot.add_child(sleeve_mesh)
+    var palm := SphereMesh.new()
+    palm.radius = 0.11
+    palm.height = 0.22
+    var hand := MeshInstance3D.new()
+    hand.mesh = palm
+    hand.material_override = glove
+    hand.position = Vector3(0.0, -0.30, -0.31)
+    pivot.add_child(hand)
+    return pivot
+
+func animate_movement(delta: float, running: bool) -> void:
+    var speed: float = Vector2(velocity.x, velocity.z).length()
+    var moving: bool = is_on_floor() and speed > 0.3
+    var strength: float = clampf(speed / sprint_speed, 0.0, 1.0)
+    if moving:
+        gait_time += delta * (12.0 if running else 9.0)
+        step_distance += speed * delta
+        var interval: float = 2.2 if running else 1.7
+        if step_distance >= interval:
+            step_distance = fmod(step_distance, interval)
+            if footstep != null:
+                footstep.pitch_scale = randf_range(0.93, 1.07)
+                footstep.play()
+    else:
+        step_distance = 0.0
+    if is_on_floor() and not was_grounded:
+        landing = clampf(last_vertical_speed * 0.014, -0.12, 0.0)
+    was_grounded = is_on_floor()
+    landing = lerpf(landing, 0.0, minf(delta * 9.0, 1.0))
+    var bob_x: float = cos(gait_time) * 0.014 * strength if moving else 0.0
+    var bob_y: float = absf(sin(gait_time)) * 0.03 * strength if moving else 0.0
+    camera.position = camera.position.lerp(camera_home + Vector3(bob_x, bob_y + landing, 0.0), minf(delta * 12.0, 1.0))
+    var swing: float = sin(gait_time) * 0.2 * strength if moving else 0.0
+    left_arm.rotation.x = lerpf(left_arm.rotation.x, -0.4 + swing, minf(delta * 10.0, 1.0))
+    right_arm.rotation.x = lerpf(right_arm.rotation.x, -0.4 - swing, minf(delta * 10.0, 1.0))
+    arm_root.position.y = lerpf(arm_root.position.y, bob_y * 0.5 + landing * 0.5, minf(delta * 10.0, 1.0))
+
+func setup_footstep() -> void:
+    footstep = AudioStreamPlayer.new()
+    footstep.name = "FootstepAudio"
+    footstep.volume_db = -18.0
+    add_child(footstep)
+    var samples: int = 1800
+    var bytes := PackedByteArray()
+    bytes.resize(samples * 2)
+    var noise := RandomNumberGenerator.new()
+    noise.seed = 4188
+    var filtered: float = 0.0
+    for i in range(samples):
+        var progress: float = float(i) / float(samples)
+        filtered = lerpf(filtered, noise.randf_range(-1.0, 1.0), 0.24)
+        var value: float = clampf(filtered * pow(1.0 - progress, 2.5) * 0.55, -1.0, 1.0)
+        bytes.encode_s16(i * 2, int(value * 32767.0))
+    var wave := AudioStreamWAV.new()
+    wave.format = AudioStreamWAV.FORMAT_16_BITS
+    wave.mix_rate = 22050
+    wave.stereo = false
+    wave.data = bytes
+    footstep.stream = wave
