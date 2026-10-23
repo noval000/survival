@@ -5,6 +5,7 @@ const BUILDING_SCRIPT = preload("res://scripts/BuildingSystem.gd")
 const SURVIVAL_UI_SCRIPT = preload("res://scripts/SurvivalUI.gd")
 const SAVE_GAME = preload("res://scripts/SaveGame.gd")
 const BUILDING_HUD_SCRIPT = preload("res://scripts/BuildingHUD.gd")
+const QUICK_ACTIONS_SCRIPT = preload("res://scripts/QuickActionsHUD.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -31,6 +32,7 @@ var inventory_ui: CanvasLayer
 var building: Node3D
 var survival_ui: CanvasLayer
 var building_hud: CanvasLayer
+var quick_actions: CanvasLayer
 var health: float = 100.0
 var hunger: float = 100.0
 var thirst: float = 100.0
@@ -86,6 +88,14 @@ func _ready() -> void:
     building_hud = BUILDING_HUD_SCRIPT.new()
     add_child(building_hud)
     building_hud.piece_requested.connect(func(kind: String) -> void: building.choose_piece(kind))
+    quick_actions = QUICK_ACTIONS_SCRIPT.new()
+    add_child(quick_actions)
+    quick_actions.inventory_pressed.connect(toggle_backpack)
+    quick_actions.build_pressed.connect(toggle_build_mode)
+    quick_actions.interact_pressed.connect(try_interact)
+    quick_actions.rotate_pressed.connect(func() -> void: building.rotate_piece())
+    quick_actions.save_pressed.connect(save_progress)
+    quick_actions.tool_pressed.connect(equip_tool)
     load_progress.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -101,9 +111,13 @@ func _unhandled_input(event: InputEvent) -> void:
             return
         if dead:
             return
+        if event.physical_keycode == KEY_ALT:
+            var visible_cursor: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+            Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible_cursor else Input.MOUSE_MODE_CAPTURED
+            quick_actions.set_cursor_visible(visible_cursor)
+            return
         if event.physical_keycode == KEY_I:
-            var opened: bool = inventory_ui.toggle_inventory()
-            Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if opened else Input.MOUSE_MODE_CAPTURED
+            toggle_backpack()
             get_viewport().set_input_as_handled()
             return
         if event.physical_keycode == KEY_ESCAPE:
@@ -116,7 +130,7 @@ func _unhandled_input(event: InputEvent) -> void:
             return
         if not inventory_ui.is_open():
             if event.physical_keycode == KEY_B:
-                building.set_active(not building.active)
+                toggle_build_mode()
                 get_viewport().set_input_as_handled()
                 return
             if building.active:
@@ -503,3 +517,22 @@ func use_consumable(kind: String) -> void:
 func show_message(message: String) -> void:
     feedback_remaining = 1.6
     harvest_feedback.text = message
+
+func toggle_backpack() -> void:
+    if dead:
+        return
+    var opened: bool = inventory_ui.toggle_inventory()
+    Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if opened else Input.MOUSE_MODE_CAPTURED
+    quick_actions.set_cursor_visible(opened)
+
+func toggle_build_mode() -> void:
+    if dead or inventory_ui.is_open():
+        return
+    building.set_active(not building.active)
+
+func equip_tool(kind: String) -> void:
+    if dead or kind not in ["axe", "pickaxe"]:
+        return
+    equipped_tool = kind
+    setup_tool()
+    sync_inventory()
