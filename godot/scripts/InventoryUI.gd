@@ -2,6 +2,7 @@ extends CanvasLayer
 
 const UI = preload("res://scripts/UIDesign.gd")
 const ICON_DIR := "res://assets/icons/"
+const SLOT = preload("res://scripts/InventorySlot.gd")
 
 signal craft_requested(recipe: String, quantity: int)
 signal consumable_requested(kind: String)
@@ -28,6 +29,8 @@ var current_tool := "axe"
 var panel: PanelContainer
 var hotbar_text: Label
 var hotbar_buttons: Dictionary = {}
+var hotbar_assignments: Array[String] = ["axe", "pickaxe", "berries", "bandage", "", ""]
+var hotbar_slots: Array = []
 var item_labels: Dictionary = {}
 var item_slots: Dictionary = {}
 var recipe_buttons: Dictionary = {}
@@ -61,15 +64,15 @@ func _ready() -> void:
     hotbar.position = Vector2(-150, -88)
     hotbar.add_theme_constant_override("separation", 10)
     root.add_child(hotbar)
-    for kind in ["axe", "pickaxe"]:
-        var button := Button.new()
-        button.custom_minimum_size = Vector2(140, 62)
-        button.pressed.connect(_select_tool.bind(kind))
-        UI.decorate_button(button)
-        button.icon = load(ICON_DIR + kind + ".svg") as Texture2D
-        button.expand_icon = true
-        hotbar.add_child(button)
-        hotbar_buttons[kind] = button
+    for index in range(6):
+        var slot = SLOT.new()
+        slot.custom_minimum_size = Vector2(92, 94)
+        slot.slot_index = index
+        slot.draggable = true
+        slot.item_dropped.connect(assign_hotbar)
+        slot.slot_pressed.connect(activate_slot)
+        hotbar.add_child(slot)
+        hotbar_slots.append(slot)
     hotbar_text = Label.new()
     hotbar_text.visible = false
     root.add_child(hotbar_text)
@@ -103,28 +106,11 @@ func _ready() -> void:
     slots.add_theme_constant_override("v_separation", 7)
     bag.add_child(slots)
     for kind in ITEMS:
-        var tile := PanelContainer.new()
+        var tile = SLOT.new()
         tile.custom_minimum_size = Vector2(112, 112)
-        tile.add_theme_stylebox_override("panel", UI.panel_style())
+        tile.draggable = true
+        tile.slot_pressed.connect(activate_slot)
         slots.add_child(tile)
-        var stack := VBoxContainer.new()
-        tile.add_child(stack)
-        var symbol := TextureRect.new()
-        symbol.texture = load(ICON_DIR + kind + ".svg") as Texture2D
-        symbol.custom_minimum_size = Vector2(54, 54)
-        symbol.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        symbol.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        stack.add_child(symbol)
-        var caption := Label.new()
-        caption.text = ITEMS[kind][0]
-        caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        caption.add_theme_font_size_override("font_size", 12)
-        stack.add_child(caption)
-        var amount := Label.new()
-        amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-        amount.add_theme_font_size_override("font_size", 20)
-        stack.add_child(amount)
-        item_labels[kind] = amount
         item_slots[kind] = tile
     var catalog := VBoxContainer.new()
     catalog.custom_minimum_size.x = 205
@@ -201,6 +187,62 @@ func _ready() -> void:
     panel.visible = false
     refresh()
 
+func item_name(kind: String) -> String:
+    if kind in ITEMS:
+        return str(ITEMS[kind][0])
+    if kind == "axe":
+        return "Топор"
+    if kind == "pickaxe":
+        return "Кирка"
+    return "Пусто"
+
+func item_count(kind: String) -> int:
+    if kind == "":
+        return 0
+    if kind in ["axe", "pickaxe"]:
+        return 1 if bool(tools.get(kind, false)) else 0
+    return int(inventory.get(kind, 0))
+
+func assign_hotbar(kind: String, index: int) -> void:
+    if index < 0 or index >= hotbar_assignments.size() or item_count(kind) <= 0:
+        return
+    var existing := hotbar_assignments.find(kind)
+    if existing == index:
+        return
+    if existing >= 0:
+        hotbar_assignments[existing] = hotbar_assignments[index]
+    hotbar_assignments[index] = kind
+    refresh()
+
+func activate_slot(kind: String) -> void:
+    if item_count(kind) <= 0:
+        return
+    if kind in ["axe", "pickaxe"]:
+        tool_selected.emit(kind)
+    elif kind in ["berries", "bandage"]:
+        consumable_requested.emit(kind)
+
+func activate_hotbar_index(index: int) -> void:
+    if index >= 0 and index < hotbar_assignments.size():
+        activate_slot(hotbar_assignments[index])
+
+func get_hotbar_assignments() -> Array:
+    return hotbar_assignments.duplicate()
+
+func restore_hotbar_assignments(saved: Array) -> void:
+    if saved.size() != 6:
+        return
+    var next: Array[String] = []
+    for kind in saved:
+        var item := str(kind)
+        if item != "" and item not in ITEMS and item not in ["axe", "pickaxe"]:
+            return
+        if item != "" and item in next:
+            return
+        next.append(item)
+    hotbar_assignments = next
+    refresh()
+
 func _select_tool(kind: String) -> void:
     tool_selected.emit(kind)
 
@@ -242,16 +284,15 @@ func set_inventory(values: Dictionary, owned_tools: Dictionary, selected: String
 func refresh() -> void:
     if hotbar_text == null:
         return
-    for kind in hotbar_buttons:
-        var button: Button = hotbar_buttons[kind]
-        button.text = ("1  ТОПОР" if kind == "axe" else "2  КИРКА") + ("  ●" if current_tool == kind else "")
-        UI.decorate_button(button, current_tool == kind)
-    for kind in item_labels:
-        var count: int = int(inventory.get(kind, 0))
-        var amount: Label = item_labels[kind]
-        amount.text = "× %d" % count
-        var tile: PanelContainer = item_slots[kind]
-        tile.modulate = Color.WHITE if count > 0 else Color(0.57, 0.63, 0.62)
+    for index in range(hotbar_slots.size()):
+        var kind: String = hotbar_assignments[index]
+        var amount: int = item_count(kind)
+        var title := str(index + 1) + " · " + item_name(kind)
+        hotbar_slots[index].update_item(kind, amount, title)
+        hotbar_slots[index].add_theme_stylebox_override("panel", UI.panel_style(kind == current_tool and kind != ""))
+    for kind in item_slots:
+        var tile = item_slots[kind]
+        tile.update_item(kind, item_count(kind), item_name(kind))
     for recipe in RECIPES:
         var info: Array = RECIPES[recipe]
         var button: Button = recipe_buttons[recipe]
