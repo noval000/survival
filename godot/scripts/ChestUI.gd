@@ -14,11 +14,11 @@ var bag
 func _ready() -> void:
     layer = 25
     panel = PanelContainer.new()
+    add_child(panel)
     panel.set_anchors_preset(Control.PRESET_CENTER)
     panel.position = Vector2(-420, -310)
     panel.custom_minimum_size = Vector2(840, 620)
     panel.add_theme_stylebox_override("panel", UI.panel_style())
-    add_child(panel)
     var column := VBoxContainer.new()
     panel.add_child(column)
     var heading := HBoxContainer.new()
