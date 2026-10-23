@@ -18,6 +18,21 @@ func count(kind: String) -> int:
             total += int(slot.get("count", 0))
     return total
 
+func free_space(kind: String) -> int:
+    if kind not in VALID_ITEMS:
+        return 0
+    var cap: int = 1 if kind in ["axe", "pickaxe"] else MAX_STACK
+    var free := 0
+    for slot in slots:
+        if slot.is_empty():
+            free += cap
+        elif str(slot.get("kind", "")) == kind:
+            free += maxi(0, cap - int(slot.get("count", 0)))
+    return free
+
+func can_fit(kind: String, amount: int) -> bool:
+    return amount >= 0 and free_space(kind) >= amount
+
 func add(kind: String, amount: int) -> int:
     if kind not in VALID_ITEMS or amount <= 0:
         return amount
