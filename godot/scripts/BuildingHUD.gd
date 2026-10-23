@@ -66,4 +66,22 @@ func update_building(enabled: bool, selected: String, can_place: bool, resources
         if data[0] == selected:
             selected_data = data
             break
-    detail.text = "Выбрано: %s  |  Нужно: %s  |  %s" % [selected_data[1], selected_data[3], "МОЖНО СТРОИТЬ" if can_place else "НЕЛЬЗЯ РАЗМЕСТИТЬ"]
+    var costs: Dictionary = {}
+    if selected == "foundation":
+        costs = {"wood": 20, "stone": 10}
+    elif selected == "wall":
+        costs = {"plank": 4}
+    elif selected == "doorway":
+        costs = {"plank": 3}
+    elif selected == "roof":
+        costs = {"plank": 6}
+    var parts: Array[String] = []
+    var affordable := true
+    for material in costs:
+        var have: int = int(resources.get(material, 0))
+        var need: int = int(costs[material])
+        affordable = affordable and have >= need
+        var label: String = "Древесина" if material == "wood" else ("Камень" if material == "stone" else "Доски")
+        parts.append("%s: %d / %d" % [label, have, need])
+    var state := "МОЖНО СТРОИТЬ" if can_place and affordable else ("МАЛО РЕСУРСОВ" if not affordable else "НЕТ ПОДХОДЯЩЕГО МЕСТА")
+    detail.text = "%s | %s | %s" % [selected_data[1], " · ".join(parts), state]
