@@ -63,7 +63,7 @@ func _ready() -> void:
     for kind in ["axe", "pickaxe"]:
         var button := Button.new()
         button.custom_minimum_size = Vector2(140, 62)
-        button.pressed.connect(func() -> void: tool_selected.emit(kind))
+        button.pressed.connect(_select_tool.bind(kind))
         UI.decorate_button(button)
         hotbar.add_child(button)
         hotbar_buttons[kind] = button
@@ -196,6 +196,9 @@ func _ready() -> void:
     UI.decorate_title(detail_title, 18)
     panel.visible = false
     refresh()
+
+func _select_tool(kind: String) -> void:
+    tool_selected.emit(kind)
 
 func _consume(kind: String) -> void:
     consumable_requested.emit(kind)
