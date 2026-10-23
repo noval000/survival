@@ -157,7 +157,7 @@ func _ready() -> void:
     details.add_child(max_button)
     craft_button = Button.new()
     craft_button.custom_minimum_size.y = 56
-    craft_button.pressed.connect(func() -> void: craft_requested.emit(selected_recipe))
+    craft_button.pressed.connect(func() -> void: craft_requested.emit(selected_recipe, int(quantity_input.value)))
     details.add_child(craft_button)
     recipe_status = Label.new()
     details.add_child(recipe_status)
@@ -181,6 +181,18 @@ func _consume(kind: String) -> void:
 
 func select_recipe(kind: String) -> void:
     selected_recipe = kind
+    quantity_input.value = 1
+    refresh()
+
+func max_craft_count() -> int:
+    var costs: Dictionary = RECIPES[selected_recipe][1]
+    var maximum := 9999
+    for material in costs:
+        maximum = mini(maximum, int(inventory.get(material, 0)) / int(costs[material]))
+    return maxi(0, maximum)
+
+func set_max_quantity() -> void:
+    quantity_input.value = maxi(1, max_craft_count())
     refresh()
 
 func toggle_inventory() -> bool:
@@ -219,7 +231,7 @@ func refresh() -> void:
     var costs: Dictionary = info[1]
     var enough := true
     for material in costs:
-        var required: int = int(costs[material])
+        var required: int = int(costs[material]) * int(quantity_input.value)
         var available: int = int(inventory.get(material, 0))
         var good: bool = available >= required
         enough = enough and good
@@ -230,7 +242,8 @@ func refresh() -> void:
         label.text = "%s  %s\nНужно: %d     Есть: %d" % [ITEMS[material][1], ITEMS[material][0], required, available]
         label.add_theme_color_override("font_color", Color(0.52, 0.95, 0.62) if good else Color(1.0, 0.48, 0.43))
         row.add_child(label)
-    craft_button.text = "СОЗДАТЬ" if enough else "НЕДОСТАТОЧНО РЕСУРСОВ"
+    craft_button.text = ("СОЗДАТЬ ×%d" % int(quantity_input.value)) if enough else "НЕДОСТАТОЧНО РЕСУРСОВ"
+    max_button.disabled = max_craft_count() <= 0
     craft_button.disabled = not enough
     recipe_status.text = "Все материалы собраны" if enough else "Красным отмечены недостающие материалы"
     use_buttons["berries"].text = "Съесть ягоды  (+25 сытости)"
