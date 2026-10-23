@@ -159,21 +159,25 @@ func place_piece(resources: Dictionary) -> bool:
             return false
     for material in cost:
         resources[material] = int(resources.get(material, 0)) - int(cost[material])
+    create_structure(piece_type, preview_position, rotation_step)
+    return true
+
+func create_structure(kind: String, position: Vector3, quarter_turns: int) -> void:
     var body := StaticBody3D.new()
-    body.name = "Built_" + piece_type
+    body.name = "Built_" + kind
     body.collision_layer = 1
     body.collision_mask = 1
     add_child(body)
-    body.global_position = preview_position
-    body.rotation.y = float(rotation_step) * PI * 0.5
+    body.global_position = position
+    body.rotation.y = float(quarter_turns) * PI * 0.5
     var mesh := BoxMesh.new()
-    mesh.size = SIZES[piece_type]
+    mesh.size = SIZES[kind]
     var view := MeshInstance3D.new()
     view.mesh = mesh
     var material := StandardMaterial3D.new()
-    material.albedo_color = Color(0.39, 0.27, 0.16) if piece_type != "foundation" else Color(0.42, 0.41, 0.37)
+    material.albedo_color = Color(0.39, 0.27, 0.16) if kind != "foundation" else Color(0.42, 0.41, 0.37)
     view.material_override = material
-    if piece_type != "doorway":
+    if kind != "doorway":
         body.add_child(view)
     else:
         for side in [-1.0, 1.0]:
@@ -203,20 +207,23 @@ func place_piece(resources: Dictionary) -> bool:
         lintel_shape.shape = lintel_box
         lintel_shape.position = lintel.position
         body.add_child(lintel_shape)
-    if piece_type != "doorway":
+    if kind != "doorway":
         var collider := CollisionShape3D.new()
         var shape := BoxShape3D.new()
-        shape.size = SIZES[piece_type]
+        shape.size = SIZES[kind]
         collider.shape = shape
         body.add_child(collider)
-    placed.append({"type": piece_type, "position": preview_position, "rotation": rotation_step})
-    return true
+    placed.append({"type": kind, "position": position, "rotation": quarter_turns})
+
+func clear_structures() -> void:
+    for child in get_children():
+        if child is StaticBody3D and child.name.begins_with("Built_"):
+            remove_child(child)
+            child.queue_free()
+    placed.clear()
 
 func restore_structures(structures: Array) -> void:
-    var previous_active: bool = active
-    var previous_type: String = piece_type
-    var previous_rotation: int = rotation_step
-    var previous_position: Vector3 = preview_position
+    clear_structures()
     for record in structures:
         if typeof(record) != TYPE_DICTIONARY:
             continue
@@ -224,16 +231,7 @@ func restore_structures(structures: Array) -> void:
         var coords: Array = record.get("position", [])
         if not COSTS.has(kind) or coords.size() != 3:
             continue
-        piece_type = kind
-        rotation_step = posmod(int(record.get("rotation", 0)), 4)
-        preview_position = Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
-        ghost_valid = true
-        active = true
-        var free_materials: Dictionary = {"wood": 999999, "stone": 999999, "plank": 999999}
-        place_piece(free_materials)
-    active = previous_active
-    piece_type = previous_type
-    rotation_step = previous_rotation
-    preview_position = previous_position
+        var position := Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
+        create_structure(kind, position, posmod(int(record.get("rotation", 0)), 4))
     refresh_preview()
-    set_active(previous_active)
+    set_active(active)
