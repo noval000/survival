@@ -1,10 +1,10 @@
 extends CanvasLayer
 
 const PIECES := [
-    ["foundation", "ФУНДАМЕНТ", "▦", "20 древесины · 10 камня"],
-    ["wall", "СТЕНА", "▥", "4 доски"],
-    ["doorway", "ДВЕРНОЙ ПРОЁМ", "▣", "3 доски"],
-    ["roof", "КРЫША", "▤", "6 досок"]
+    ["foundation", "ФУНДАМЕНТ", "▦", "20 древесины"],
+    ["wall", "СТЕНА", "▥", "12 древесины"],
+    ["doorway", "ДВЕРНОЙ ПРОЁМ", "▣", "10 древесины"],
+    ["roof", "КРЫША", "▤", "16 древесины"]
 ]
 signal piece_requested(kind: String)
 signal rotate_requested
@@ -68,13 +68,13 @@ func update_building(enabled: bool, selected: String, can_place: bool, resources
             break
     var costs: Dictionary = {}
     if selected == "foundation":
-        costs = {"wood": 20, "stone": 10}
+        costs = {"wood": 20}
     elif selected == "wall":
-        costs = {"plank": 4}
+        costs = {"wood": 12}
     elif selected == "doorway":
-        costs = {"plank": 3}
+        costs = {"wood": 10}
     elif selected == "roof":
-        costs = {"plank": 6}
+        costs = {"wood": 16}
     var parts: Array[String] = []
     var affordable := true
     for material in costs:
