@@ -144,6 +144,17 @@ func _ready() -> void:
     ingredient_list = VBoxContainer.new()
     ingredient_list.add_theme_constant_override("separation", 8)
     details.add_child(ingredient_list)
+    quantity_input = SpinBox.new()
+    quantity_input.min_value = 1
+    quantity_input.max_value = 9999
+    quantity_input.value = 1
+    quantity_input.rounded = true
+    quantity_input.value_changed.connect(func(_v: float) -> void: refresh())
+    details.add_child(quantity_input)
+    max_button = Button.new()
+    max_button.text = "МАКС"
+    max_button.pressed.connect(set_max_quantity)
+    details.add_child(max_button)
     craft_button = Button.new()
     craft_button.custom_minimum_size.y = 56
     craft_button.pressed.connect(func() -> void: craft_requested.emit(selected_recipe))
