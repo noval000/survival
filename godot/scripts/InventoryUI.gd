@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-signal craft_requested(recipe: String)
+signal craft_requested(recipe: String, quantity: int)
 signal consumable_requested(kind: String)
 
 const ITEMS := {
@@ -14,11 +14,10 @@ const ITEMS := {
     "bandage": ["Бинт", "✚"]
 }
 const RECIPES := {
-    "plank": ["Доски ×2", {"wood": 5}],
     "axe": ["Топор", {"wood": 10, "stone": 5}],
     "pickaxe": ["Кирка", {"wood": 5, "stone": 10}],
     "iron_bar": ["Железный слиток", {"iron": 3, "coal": 2}],
-    "bandage": ["Бинт", {"berries": 3, "plank": 2}]
+    "bandage": ["Бинт", {"berries": 3, "wood": 2}]
 }
 var inventory: Dictionary = {}
 var tools: Dictionary = {}
@@ -30,7 +29,9 @@ var item_slots: Dictionary = {}
 var recipe_buttons: Dictionary = {}
 var use_buttons: Dictionary = {}
 var recipe_list: VBoxContainer
-var selected_recipe := "plank"
+var selected_recipe := "axe"
+var quantity_input: SpinBox
+var max_button: Button
 var recipe_name: Label
 var ingredient_list: VBoxContainer
 var craft_button: Button
