@@ -1,4 +1,5 @@
 extends CanvasLayer
+const UI = preload("res://scripts/UIDesign.gd")
 
 var health_bar: ProgressBar
 var hunger_bar: ProgressBar
@@ -15,6 +16,7 @@ func _ready() -> void:
     for stat in ["ЗДОРОВЬЕ", "СЫТОСТЬ", "ЖАЖДА"]:
         var label := Label.new()
         label.text = stat
+        UI.decorate_title(label, 14)
         column.add_child(label)
         var bar := ProgressBar.new()
         bar.max_value = 100.0
@@ -34,6 +36,7 @@ func _ready() -> void:
     death_panel.custom_minimum_size = Vector2(320, 160)
     add_child(death_panel)
     var contents := VBoxContainer.new()
+    death_panel.add_theme_stylebox_override("panel", UI.panel_style())
     death_panel.add_child(contents)
     var title := Label.new()
     title.text = "ВЫ ПОГИБЛИ"
@@ -43,6 +46,7 @@ func _ready() -> void:
     var button := Button.new()
     button.text = "ВОЗРОДИТЬСЯ"
     button.pressed.connect(func() -> void: respawn_requested.emit())
+    UI.decorate_button(button, true)
     contents.add_child(button)
     death_panel.visible = false
 
