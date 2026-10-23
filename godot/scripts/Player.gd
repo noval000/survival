@@ -156,14 +156,10 @@ func _unhandled_input(event: InputEvent) -> void:
                     building.rotate_piece()
                 get_viewport().set_input_as_handled()
                 return
-            if event.physical_keycode == KEY_1:
-                equipped_tool = "axe"
-                setup_tool()
-                sync_inventory()
-            elif event.physical_keycode == KEY_2:
-                equipped_tool = "pickaxe"
-                setup_tool()
-                sync_inventory()
+            if event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_6:
+                inventory_ui.activate_hotbar_index(event.physical_keycode - KEY_1)
+                get_viewport().set_input_as_handled()
+                return
     elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not inventory_ui.is_open():
         pass
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -487,6 +483,7 @@ func load_progress() -> void:
     survival_ui.update_stats(health, hunger, thirst)
     var structures: Array = data.get("structures", [])
     building.restore_structures(structures)
+    inventory_ui.restore_hotbar_assignments(data.get("hotbar", []))
     setup_tool()
     sync_inventory()
 
