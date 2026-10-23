@@ -15,6 +15,7 @@ static func save_game(player, building) -> bool:
         "tools": player.owned_tools.duplicate(),
         "equipped_tool": player.equipped_tool,
         "hotbar": player.inventory_ui.get_hotbar_assignments(),
+        "bag_layout": player.inventory_ui.get_bag_layout(),
         "health": player.health,
         "hunger": player.hunger,
         "thirst": player.thirst,
