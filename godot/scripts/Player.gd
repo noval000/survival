@@ -529,10 +529,12 @@ func try_interact() -> void:
     if hit.is_empty():
         return
     var target: Node = hit.get("collider") as Node
-    if target == null or not target.is_in_group("survival_interactable"):
+    if target == null:
         return
     if target.is_in_group("survival_chests"):
         open_chest(target)
+        return
+    if not target.is_in_group("survival_interactable"):
         return
     var kind: String = str(target.get_meta("interaction", ""))
     if kind == "berries":
@@ -596,7 +598,7 @@ func transfer_chest_items(from_chest: bool, index: int, half: bool) -> void:
         show_message("Этот предмет пока нельзя перемещать")
         return
     var count: int = int(entry.get("count", 0))
-    var amount: int = maxi(1, count / 2) if half else count
+    var amount: int = maxi(1, int(floor(float(count) / 2.0))) if half else count
     var transferred: bool = chest.withdraw(inventory_ui.stack_model, index, amount) if from_chest else chest.deposit(inventory_ui.stack_model, index, amount)
     if not transferred:
         show_message("Недостаточно места для переноса")
