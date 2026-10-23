@@ -115,6 +115,7 @@ func _ready() -> void:
         tile.slot_index = 100 + index
         tile.draggable = true
         tile.stack_dropped.connect(move_bag_stack)
+        tile.slot_secondary_pressed.connect(split_into_first_free_slot)
         tile.item_dropped.connect(assign_hotbar)
         slots.add_child(tile)
         bag_slots.append(tile)
@@ -231,6 +232,15 @@ func move_bag_stack(source: int, destination: int, half: bool) -> void:
     else:
         stack_model.move(source, destination)
     refresh()
+
+func split_into_first_free_slot(source: int) -> void:
+    if source < 0 or source >= stack_model.slots.size():
+        return
+    for index in range(stack_model.slots.size()):
+        if stack_model.slots[index].is_empty():
+            if stack_model.split(source, index):
+                refresh()
+            return
 
 func get_bag_layout() -> Array:
     return stack_model.serialize()
