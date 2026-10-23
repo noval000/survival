@@ -2,6 +2,7 @@ extends PanelContainer
 
 signal slot_pressed(kind: String)
 signal item_dropped(kind: String, target_index: int)
+signal stack_dropped(source_index: int, target_index: int, split: bool)
 
 var item_kind := ""
 var slot_index := -1
@@ -71,4 +72,7 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
     if _can_drop_data(Vector2.ZERO, data):
-        item_dropped.emit(str(data["kind"]), slot_index)
+        if int(data.get("source_index", -1)) >= 100 and slot_index >= 100:
+            stack_dropped.emit(int(data["source_index"]) - 100, slot_index - 100, Input.is_key_pressed(KEY_SHIFT))
+        else:
+            item_dropped.emit(str(data["kind"]), slot_index)
