@@ -38,10 +38,11 @@ func add(kind: String, amount: int) -> int:
         return amount
     var remaining := amount
     var cap := 1 if kind in ["axe", "pickaxe"] else MAX_STACK
-    for slot in slots:
+    for i in range(slots.size()):
+        var slot: Dictionary = slots[i]
         if str(slot.get("kind", "")) == kind and int(slot.get("count", 0)) < cap:
             var delta: int = mini(remaining, cap - int(slot["count"]))
-            slot["count"] = int(slot["count"]) + delta
+            slots[i]["count"] = int(slot["count"]) + delta
             remaining -= delta
             if remaining == 0:
                 return 0
