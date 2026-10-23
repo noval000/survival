@@ -61,8 +61,8 @@ func _ready() -> void:
     root.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var hotbar := HBoxContainer.new()
     hotbar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-    hotbar.position = Vector2(-150, -88)
-    hotbar.add_theme_constant_override("separation", 10)
+    hotbar.position = Vector2(-300, -112)
+    hotbar.add_theme_constant_override("separation", 8)
     root.add_child(hotbar)
     for index in range(6):
         var slot = SLOT.new()
