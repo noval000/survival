@@ -3,6 +3,7 @@ extends CanvasLayer
 const UI = preload("res://scripts/UIDesign.gd")
 const ICON_DIR := "res://assets/icons/"
 const SLOT = preload("res://scripts/InventorySlot.gd")
+const STACKS = preload("res://scripts/InventoryStacks.gd")
 
 signal craft_requested(recipe: String, quantity: int)
 signal consumable_requested(kind: String)
@@ -33,6 +34,9 @@ var hotbar_assignments: Array[String] = ["axe", "pickaxe", "berries", "bandage",
 var hotbar_slots: Array = []
 var item_labels: Dictionary = {}
 var item_slots: Dictionary = {}
+var bag_slots: Array = []
+var stack_model = STACKS.new()
+var overflow_label: Label
 var recipe_buttons: Dictionary = {}
 var use_buttons: Dictionary = {}
 var recipe_list: VBoxContainer
@@ -94,24 +98,30 @@ func _ready() -> void:
     columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
     layout.add_child(columns)
     var bag := VBoxContainer.new()
-    bag.custom_minimum_size.x = 360
+    bag.custom_minimum_size.x = 350
     columns.add_child(bag)
     var bag_title := Label.new()
     bag_title.text = "ПРЕДМЕТЫ  •  В РЮКЗАКЕ"
     bag_title.add_theme_font_size_override("font_size", 18)
     bag.add_child(bag_title)
     var slots := GridContainer.new()
-    slots.columns = 3
+    slots.columns = 4
     slots.add_theme_constant_override("h_separation", 7)
     slots.add_theme_constant_override("v_separation", 7)
     bag.add_child(slots)
-    for kind in ITEMS:
+    for index in range(STACKS.CAPACITY):
         var tile = SLOT.new()
-        tile.custom_minimum_size = Vector2(112, 112)
+        tile.custom_minimum_size = Vector2(76, 76)
+        tile.slot_index = 100 + index
         tile.draggable = true
-        tile.slot_pressed.connect(activate_slot)
+        tile.stack_dropped.connect(move_bag_stack)
+        tile.item_dropped.connect(assign_hotbar)
         slots.add_child(tile)
-        item_slots[kind] = tile
+        bag_slots.append(tile)
+    overflow_label = Label.new()
+    overflow_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    overflow_label.add_theme_color_override("font_color", UI.DANGER)
+    bag.add_child(overflow_label)
     var catalog := VBoxContainer.new()
     catalog.custom_minimum_size.x = 205
     columns.add_child(catalog)
@@ -186,6 +196,30 @@ func _ready() -> void:
     UI.decorate_title(detail_title, 18)
     panel.visible = false
     refresh()
+
+func reconcile_stacks() -> void:
+    for kind in ITEMS:
+        var desired: int = maxi(0, int(inventory.get(kind, 0)))
+        var actual: int = stack_model.count(kind)
+        if actual < desired:
+            stack_model.add(kind, desired - actual)
+        elif actual > desired:
+            stack_model.remove(kind, actual - desired)
+
+func move_bag_stack(source: int, destination: int, half: bool) -> void:
+    if half:
+        stack_model.split(source, destination)
+    else:
+        stack_model.move(source, destination)
+    refresh()
+
+func get_bag_layout() -> Array:
+    return stack_model.serialize()
+
+func restore_bag_layout(data: Array) -> void:
+    if stack_model.restore(data):
+        reconcile_stacks()
+        refresh()
 
 func item_name(kind: String) -> String:
     if kind in ITEMS:
@@ -278,6 +312,7 @@ func is_open() -> bool:
 func set_inventory(values: Dictionary, owned_tools: Dictionary, selected: String) -> void:
     inventory = values.duplicate()
     tools = owned_tools.duplicate()
+    reconcile_stacks()
     current_tool = selected
     refresh()
 
@@ -290,9 +325,16 @@ func refresh() -> void:
         var title := str(index + 1) + " · " + item_name(kind)
         hotbar_slots[index].update_item(kind, amount, title)
         hotbar_slots[index].add_theme_stylebox_override("panel", UI.panel_style(kind == current_tool and kind != ""))
-    for kind in item_slots:
-        var tile = item_slots[kind]
-        tile.update_item(kind, item_count(kind), item_name(kind))
+    for index in range(bag_slots.size()):
+        var slot: Dictionary = stack_model.slots[index]
+        var kind := str(slot.get("kind", ""))
+        bag_slots[index].update_item(kind, int(slot.get("count", 0)), item_name(kind))
+    var overflow: Array[String] = []
+    for kind in ITEMS:
+        var hidden: int = maxi(0, int(inventory.get(kind, 0)) - stack_model.count(kind))
+        if hidden > 0:
+            overflow.append("%s: %d" % [item_name(kind), hidden])
+    overflow_label.text = "Нет места в слотах: " + ", ".join(overflow) if not overflow.is_empty() else ""
     for recipe in RECIPES:
         var info: Array = RECIPES[recipe]
         var button: Button = recipe_buttons[recipe]
