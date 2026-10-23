@@ -592,7 +592,7 @@ func place_chest() -> void:
     show_message("Сундук установлен. Наведитесь и нажмите E")
 
 func open_chest(target: Node) -> void:
-    if dead or inventory_ui.is_open():
+    if dead or inventory_ui.is_open() or target.global_position.distance_to(global_position) > 4.5:
         return
     chest_ui.open_storage(target, inventory_ui.stack_model)
     Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -601,7 +601,7 @@ func transfer_chest_items(from_chest: bool, index: int, half: bool) -> void:
     if not chest_ui.is_open():
         return
     var chest = chest_ui.chest
-    if not is_instance_valid(chest):
+    if not is_instance_valid(chest) or chest.global_position.distance_to(global_position) > 4.5:
         chest_ui.close_storage()
         return
     var source = chest.storage if from_chest else inventory_ui.stack_model
