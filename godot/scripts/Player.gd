@@ -336,6 +336,12 @@ func try_harvest() -> void:
     var target: Node3D = hit.get("collider") as Node3D
     if target == null or not target.is_in_group("harvestable"):
         return
+    var resource_kind := "wood" if equipped_tool == "axe" else "stone"
+    if target.has_meta("resource_kind"):
+        resource_kind = str(target.get_meta("resource_kind"))
+    if not inventory_ui.can_fit_item(resource_kind, 25):
+        show_message("Рюкзак заполнен — освободите место")
+        return
     var result: Dictionary = target.call("harvest", equipped_tool, 25)
     for kind in result:
         resources[kind] = int(resources.get(kind, 0)) + int(result[kind])
@@ -413,6 +419,13 @@ func craft_item(recipe: String, quantity: int = 1) -> void:
     for material in costs:
         if int(resources.get(material, 0)) < int(costs[material]) * quantity:
             show_message("Не хватает ресурсов")
+            return
+    if recipe in ["iron_bar", "bandage"]:
+        var consumed: Dictionary = {}
+        for material in costs:
+            consumed[material] = int(costs[material]) * quantity
+        if not inventory_ui.can_fit_after_consuming(recipe, quantity, consumed):
+            show_message("В рюкзаке недостаточно места")
             return
     for material in costs:
         resources[material] = int(resources.get(material, 0)) - int(costs[material]) * quantity
@@ -502,6 +515,9 @@ func try_interact() -> void:
     if kind == "berries":
         var quantity: int = int(target.get_meta("quantity", 0))
         if quantity <= 0:
+            return
+        if not inventory_ui.can_fit_item("berries", quantity):
+            show_message("Недостаточно места для ягод")
             return
         resources["berries"] = int(resources.get("berries", 0)) + quantity
         target.set_meta("quantity", 0)
