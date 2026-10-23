@@ -26,7 +26,7 @@ var was_grounded: bool = false
 var last_vertical_speed: float = 0.0
 var step_distance: float = 0.0
 var footstep: AudioStreamPlayer
-var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0, "berries": 0, "bandage": 0}
+var resources: Dictionary = {"wood": 0, "stone": 0, "iron": 0, "coal": 0, "iron_bar": 0, "berries": 0, "bandage": 0}
 var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
 var inventory_ui
 var building
@@ -193,7 +193,7 @@ func _physics_process(delta: float) -> void:
             if building.place_piece(resources):
                 sync_inventory()
                 feedback_remaining = 1.3
-                harvest_feedback.text = "Построено: %s" % building.piece_type
+                harvest_feedback.text = "Построено: %s" % {"foundation": "фундамент", "wall": "стена", "doorway": "дверной проём", "roof": "крыша"}.get(building.piece_type, building.piece_type)
             else:
                 feedback_remaining = 0.8
                 harvest_feedback.text = "Нельзя построить: место занято или мало ресурсов"
@@ -331,7 +331,7 @@ func try_harvest() -> void:
     for kind in result:
         resources[kind] = int(resources.get(kind, 0)) + int(result[kind])
         feedback_remaining = 1.25
-        harvest_feedback.text = "+%d %s" % [int(result[kind]), str(kind)]
+        harvest_feedback.text = "+%d %s" % [int(result[kind]), {"wood": "древесины", "stone": "камня", "iron": "руды", "coal": "угля"}.get(str(kind), str(kind))]
     if not result.is_empty():
         sync_inventory()
     if bool(target.get("depleted")):
@@ -411,7 +411,7 @@ func craft_item(recipe: String, quantity: int = 1) -> void:
         equipped_tool = recipe
         setup_tool()
     sync_inventory()
-    show_message("Создано: %s ×%d" % [recipe, quantity])
+    show_message("Создано: %s ×%d" % [{"axe": "топор", "pickaxe": "кирка", "iron_bar": "железный слиток", "bandage": "бинт"}.get(recipe, recipe), quantity])
 
 func take_damage(amount: float) -> void:
     if dead:
