@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const UI = preload("res://scripts/UIDesign.gd")
+const ICON_DIR := "res://assets/icons/"
 
 signal craft_requested(recipe: String, quantity: int)
 signal consumable_requested(kind: String)
@@ -65,6 +66,8 @@ func _ready() -> void:
         button.custom_minimum_size = Vector2(140, 62)
         button.pressed.connect(_select_tool.bind(kind))
         UI.decorate_button(button)
+        button.icon = load(ICON_DIR + kind + ".svg") as Texture2D
+        button.expand_icon = true
         hotbar.add_child(button)
         hotbar_buttons[kind] = button
     hotbar_text = Label.new()
@@ -106,10 +109,11 @@ func _ready() -> void:
         slots.add_child(tile)
         var stack := VBoxContainer.new()
         tile.add_child(stack)
-        var symbol := Label.new()
-        symbol.text = ITEMS[kind][1]
-        symbol.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        symbol.add_theme_font_size_override("font_size", 29)
+        var symbol := TextureRect.new()
+        symbol.texture = load(ICON_DIR + kind + ".svg") as Texture2D
+        symbol.custom_minimum_size = Vector2(54, 54)
+        symbol.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        symbol.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         stack.add_child(symbol)
         var caption := Label.new()
         caption.text = ITEMS[kind][0]
@@ -252,6 +256,8 @@ func refresh() -> void:
         var info: Array = RECIPES[recipe]
         var button: Button = recipe_buttons[recipe]
         button.text = "%s  %s" % ["●" if recipe == selected_recipe else "○", info[0]]
+        button.icon = load(ICON_DIR + str(recipe) + ".svg") as Texture2D
+        button.expand_icon = true
         UI.decorate_button(button, recipe == selected_recipe)
     for child in ingredient_list.get_children():
         child.queue_free()
