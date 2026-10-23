@@ -3,6 +3,7 @@ extends PanelContainer
 signal slot_pressed(kind: String)
 signal item_dropped(kind: String, target_index: int)
 signal stack_dropped(source_index: int, target_index: int, split: bool)
+signal slot_secondary_pressed(index: int)
 
 var item_kind := ""
 var slot_index := -1
@@ -54,8 +55,12 @@ func update_item(kind: String, count: int, title: String = "") -> void:
     modulate = Color.WHITE if count > 0 else Color(0.55, 0.61, 0.62)
 
 func _gui_input(event: InputEvent) -> void:
-    if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and item_kind != "" and quantity > 0:
-        slot_pressed.emit(item_kind)
+    if event is InputEventMouseButton and event.pressed:
+        if event.button_index == MOUSE_BUTTON_RIGHT and slot_index >= 100:
+            slot_secondary_pressed.emit(slot_index - 100)
+            accept_event()
+        elif event.button_index == MOUSE_BUTTON_LEFT and item_kind != "" and quantity > 0:
+            slot_pressed.emit(item_kind)
 
 func _get_drag_data(_at_position: Vector2) -> Variant:
     if not draggable or item_kind == "" or quantity <= 0:
@@ -68,7 +73,10 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
     return {"kind": item_kind, "source_index": slot_index}
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-    return slot_index >= 0 and typeof(data) == TYPE_DICTIONARY and str(data.get("kind", "")) != ""
+    if slot_index < 0 or typeof(data) != TYPE_DICTIONARY or str(data.get("kind", "")) == "":
+        return false
+    var source: int = int(data.get("source_index", -1))
+    return (slot_index >= 100 and source >= 100) or (slot_index < 100)
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
     if _can_drop_data(Vector2.ZERO, data):
