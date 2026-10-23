@@ -100,6 +100,11 @@ func _ready() -> void:
     quick_actions.rotate_pressed.connect(func() -> void: building.rotate_piece())
     quick_actions.save_pressed.connect(save_progress)
     quick_actions.tool_pressed.connect(equip_tool)
+    mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
+    add_child(mobile_controls)
+    mobile_controls.action_pressed.connect(try_interact)
+    mobile_controls.jump_pressed.connect(func() -> void: mobile_jump = true)
+    mobile_controls.sprint_changed.connect(func(pressed: bool) -> void: mobile_sprint = pressed)
     load_progress.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
