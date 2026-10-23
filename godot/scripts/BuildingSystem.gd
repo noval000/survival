@@ -161,7 +161,7 @@ func place_piece(resources: Dictionary) -> bool:
         resources[material] = int(resources.get(material, 0)) - int(cost[material])
     var body := StaticBody3D.new()
     body.name = "Built_" + piece_type
-    body.collision_layer = 2
+    body.collision_layer = 1
     body.collision_mask = 1
     add_child(body)
     body.global_position = preview_position
