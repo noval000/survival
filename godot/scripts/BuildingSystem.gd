@@ -72,7 +72,7 @@ func refresh_preview() -> void:
 func _physics_process(_delta: float) -> void:
     if not active or camera == null or world == null:
         return
-    var ray := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 7.0)
+    var ray := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 9.0)
     ray.exclude = [player.get_rid()]
     var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
     ghost_valid = false
@@ -81,32 +81,73 @@ func _physics_process(_delta: float) -> void:
         return
     ghost.visible = true
     var location: Vector3 = hit["position"]
-    var x: float = roundf(location.x / GRID) * GRID
-    var z: float = roundf(location.z / GRID) * GRID
-    var ground: float = float(world.call("height_at", x, z))
-    var foundation_y: float = ground + 0.15
-    var supported := false
-    if piece_type != "foundation":
-        for item in placed:
-            if item["type"] == "foundation" and Vector2(item["position"].x, item["position"].z).distance_to(Vector2(x, z)) < 0.2:
-                foundation_y = item["position"].y
-                supported = true
-                break
+    var collider: Node = hit.get("collider") as Node
+    var selected_foundation: Dictionary = {}
+    var nearest_distance := 2.3
+    for item in placed:
+        if item["type"] != "foundation":
+            continue
+        var p: Vector3 = item["position"]
+        var distance: float = Vector2(location.x - p.x, location.z - p.z).length()
+        if distance < nearest_distance:
+            nearest_distance = distance
+            selected_foundation = item
     if piece_type == "foundation":
-        preview_position = Vector3(x, foundation_y, z)
-    elif piece_type == "roof":
-        preview_position = Vector3(x, foundation_y + 2.95, z)
+        var cell_x: float = roundf(location.x / GRID) * GRID
+        var cell_z: float = roundf(location.z / GRID) * GRID
+        if not selected_foundation.is_empty() and collider != null and collider.name.begins_with("Built_foundation"):
+            var origin: Vector3 = selected_foundation["position"]
+            var offset: Vector3 = location - origin
+            if absf(offset.x) > absf(offset.z):
+                cell_x = origin.x + signf(offset.x) * GRID
+                cell_z = origin.z
+            else:
+                cell_x = origin.x
+                cell_z = origin.z + signf(offset.z) * GRID
+        var foundation_y: float = float(world.call("height_at", cell_x, cell_z)) + 0.15
+        if not selected_foundation.is_empty():
+            var parent_position: Vector3 = selected_foundation["position"]
+            if absf(parent_position.x - cell_x) + absf(parent_position.z - cell_z) < GRID + 0.1:
+                foundation_y = parent_position.y
+        preview_position = Vector3(cell_x, foundation_y, cell_z)
     else:
-        preview_position = Vector3(x, foundation_y + 1.52, z)
+        if selected_foundation.is_empty():
+            ghost.visible = false
+            return
+        var center: Vector3 = selected_foundation["position"]
+        if piece_type == "roof":
+            preview_position = center + Vector3(0.0, 2.95, 0.0)
+        else:
+            var dx: float = location.x - center.x
+            var dz: float = location.z - center.z
+            var edge := rotation_step % 4
+            if absf(dx) + absf(dz) > 0.15:
+                if absf(dx) > absf(dz):
+                    edge = 1 if dx > 0.0 else 3
+                else:
+                    edge = 2 if dz > 0.0 else 0
+            rotation_step = edge
+            var offset := Vector3.ZERO
+            if edge == 0:
+                offset.z = -GRID * 0.5
+            elif edge == 1:
+                offset.x = GRID * 0.5
+            elif edge == 2:
+                offset.z = GRID * 0.5
+            else:
+                offset.x = -GRID * 0.5
+            preview_position = center + offset + Vector3(0.0, 1.52, 0.0)
     ghost.global_position = preview_position
     ghost.rotation.y = float(rotation_step) * PI * 0.5
-    var close_enough: bool = player.global_position.distance_to(preview_position) <= 8.0
-    var empty: bool = true
+    var free_slot := true
     for item in placed:
-        if item["type"] == piece_type and item["position"].distance_to(preview_position) < 0.25:
-            empty = false
-            break
-    ghost_valid = close_enough and empty and (piece_type == "foundation" or supported)
+        var previous: Vector3 = item["position"]
+        if previous.distance_to(preview_position) < 0.12:
+            if piece_type in ["wall", "doorway"] and item["type"] in ["wall", "doorway"]:
+                free_slot = false
+            elif item["type"] == piece_type:
+                free_slot = false
+    ghost_valid = free_slot and player.global_position.distance_to(preview_position) <= 9.0
     ghost.material_override = green if ghost_valid else red
 
 func place_piece(resources: Dictionary) -> bool:
@@ -120,6 +161,8 @@ func place_piece(resources: Dictionary) -> bool:
         resources[material] = int(resources.get(material, 0)) - int(cost[material])
     var body := StaticBody3D.new()
     body.name = "Built_" + piece_type
+    body.collision_layer = 2
+    body.collision_mask = 1
     add_child(body)
     body.global_position = preview_position
     body.rotation.y = float(rotation_step) * PI * 0.5
