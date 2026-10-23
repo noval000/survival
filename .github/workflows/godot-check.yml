@@ -23,4 +23,6 @@ jobs:
           /tmp/Godot_v4.3-stable_linux.x86_64 --headless --editor --path godot --import --quit
           /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --quit-after 15
       - name: Inventory regression tests
-        run: /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_inventory_stacks.gd
+        run: |
+          /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_inventory_stacks.gd
+          /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_container_transfer.gd
