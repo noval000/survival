@@ -7,6 +7,8 @@ const SAVE_GAME = preload("res://scripts/SaveGame.gd")
 const BUILDING_HUD_SCRIPT = preload("res://scripts/BuildingHUD.gd")
 const QUICK_ACTIONS_SCRIPT = preload("res://scripts/QuickActionsHUD.gd")
 const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/MobileControls.gd")
+const CHEST_SCRIPT = preload("res://scripts/StorageChest.gd")
+const CHEST_UI_SCRIPT = preload("res://scripts/ChestUI.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -35,6 +37,9 @@ var survival_ui
 var building_hud
 var quick_actions
 var mobile_controls
+var chest_ui
+var chests: Array = []
+const CHEST_COST := 50
 var mobile_jump := false
 var mobile_sprint := false
 var health: float = 100.0
@@ -106,10 +111,18 @@ func _ready() -> void:
     mobile_controls.action_pressed.connect(try_interact)
     mobile_controls.jump_pressed.connect(func() -> void: mobile_jump = true)
     mobile_controls.sprint_changed.connect(func(pressed: bool) -> void: mobile_sprint = pressed)
+    chest_ui = CHEST_UI_SCRIPT.new()
+    add_child(chest_ui)
+    chest_ui.transfer_requested.connect(transfer_chest_items)
+    chest_ui.closed.connect(_on_chest_closed)
     load_progress.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
+        if chest_ui != null and chest_ui.is_open():
+            if event.physical_keycode in [KEY_ESCAPE, KEY_E]:
+                chest_ui.close_storage()
+            return
         if event.physical_keycode == KEY_E and not inventory_ui.is_open():
             try_interact()
             return
@@ -139,6 +152,9 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if not inventory_ui.is_open():
+            if event.physical_keycode == KEY_C:
+                place_chest()
+                return
             if event.physical_keycode == KEY_B:
                 toggle_build_mode()
                 get_viewport().set_input_as_handled()
@@ -183,6 +199,9 @@ func _physics_process(delta: float) -> void:
         autosave_tick = 0.0
         save_progress()
     if dead:
+        velocity = Vector3.ZERO
+        return
+    if chest_ui != null and chest_ui.is_open():
         velocity = Vector3.ZERO
         return
     harvest_cooldown = maxf(0.0, harvest_cooldown - delta)
@@ -500,6 +519,7 @@ func load_progress() -> void:
     setup_tool()
     sync_inventory()
     inventory_ui.restore_bag_layout(data.get("bag_layout", []))
+    restore_chests(data.get("chests", []))
 
 func try_interact() -> void:
     var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 4.0)
@@ -510,6 +530,9 @@ func try_interact() -> void:
         return
     var target: Node = hit.get("collider") as Node
     if target == null or not target.is_in_group("survival_interactable"):
+        return
+    if target.is_in_group("survival_chests"):
+        open_chest(target)
         return
     var kind: String = str(target.get_meta("interaction", ""))
     if kind == "berries":
@@ -529,6 +552,86 @@ func try_interact() -> void:
         thirst = minf(100.0, thirst + 45.0)
         survival_ui.update_stats(health, hunger, thirst)
         show_message("Вы попили: +45 жажды")
+
+func _on_chest_closed() -> void:
+    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func place_chest() -> void:
+    if dead or inventory_ui.is_open() or chest_ui.is_open():
+        return
+    if int(resources.get("wood", 0)) < CHEST_COST:
+        show_message("Для сундука требуется 50 древесины")
+        return
+    var chest = CHEST_SCRIPT.new()
+    chest.chest_id = str(Time.get_ticks_usec())
+    get_parent().add_child(chest)
+    chest.global_position = global_position - global_transform.basis.z * 2.5 - Vector3(0, 0.45, 0)
+    chest.rotation.y = rotation.y
+    chests.append(chest)
+    resources["wood"] = int(resources["wood"]) - CHEST_COST
+    sync_inventory()
+    show_message("Сундук установлен. Наведитесь и нажмите E")
+
+func open_chest(target: Node) -> void:
+    if dead or inventory_ui.is_open():
+        return
+    chest_ui.open_storage(target, inventory_ui.stack_model)
+    Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func transfer_chest_items(from_chest: bool, index: int, half: bool) -> void:
+    if not chest_ui.is_open():
+        return
+    var chest = chest_ui.chest
+    if not is_instance_valid(chest):
+        chest_ui.close_storage()
+        return
+    var source = chest.storage if from_chest else inventory_ui.stack_model
+    if index < 0 or index >= source.slots.size():
+        return
+    var entry: Dictionary = source.slots[index]
+    if entry.is_empty():
+        return
+    var kind: String = str(entry.get("kind", ""))
+    if kind not in resources:
+        show_message("Этот предмет пока нельзя перемещать")
+        return
+    var count: int = int(entry.get("count", 0))
+    var amount: int = maxi(1, count / 2) if half else count
+    var transferred: bool = chest.withdraw(inventory_ui.stack_model, index, amount) if from_chest else chest.deposit(inventory_ui.stack_model, index, amount)
+    if not transferred:
+        show_message("Недостаточно места для переноса")
+        return
+    resources[kind] = int(resources.get(kind, 0)) + (amount if from_chest else -amount)
+    sync_inventory()
+    chest_ui.refresh()
+
+func get_chests_data() -> Array:
+    var result: Array = []
+    for chest in chests:
+        if is_instance_valid(chest):
+            result.append(chest.serialize())
+    return result
+
+func restore_chests(saved: Array) -> void:
+    for chest in chests:
+        if is_instance_valid(chest):
+            chest.queue_free()
+    chests.clear()
+    for record in saved:
+        if typeof(record) != TYPE_DICTIONARY:
+            continue
+        var coords: Array = record.get("position", [])
+        if coords.size() != 3:
+            continue
+        var chest = CHEST_SCRIPT.new()
+        chest.chest_id = str(record.get("id", ""))
+        get_parent().add_child(chest)
+        chest.global_position = Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
+        chest.rotation.y = float(record.get("rotation_y", 0.0))
+        if chest.restore(record):
+            chests.append(chest)
+        else:
+            chest.queue_free()
 
 func use_consumable(kind: String) -> void:
     if dead or int(resources.get(kind, 0)) <= 0:
@@ -556,7 +659,7 @@ func toggle_backpack() -> void:
     quick_actions.set_cursor_visible(opened)
 
 func toggle_build_mode() -> void:
-    if dead or inventory_ui.is_open():
+    if dead or inventory_ui.is_open() or chest_ui.is_open():
         return
     building.set_active(not building.active)
 
