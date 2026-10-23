@@ -29,7 +29,9 @@ static func transfer_kind(source, destination, kind: String, quantity: int) -> b
         return false
     if source.count(kind) < quantity or not destination.can_fit(kind, quantity):
         return false
+    var snapshot: Array = destination.serialize()
     var remainder: int = destination.add(kind, quantity)
-    if remainder != 0:
+    if remainder != 0 or not source.remove(kind, quantity):
+        destination.restore(snapshot)
         return false
-    return source.remove(kind, quantity)
+    return true
