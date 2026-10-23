@@ -165,7 +165,7 @@ func _unhandled_input(event: InputEvent) -> void:
                 setup_tool()
                 sync_inventory()
     elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not inventory_ui.is_open():
-        Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+        pass
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
         var mouse_delta: Vector2 = (event as InputEventMouseMotion).relative.limit_length(45.0)
         rotate_y(-mouse_delta.x * mouse_sensitivity)
@@ -411,6 +411,9 @@ func craft_item(recipe: String, quantity: int = 1) -> void:
         costs = {"wood": 5, "stone": 10}
     else:
         return
+    if recipe in ["axe", "pickaxe"] and (quantity != 1 or bool(owned_tools.get(recipe, false))):
+        show_message("Инструмент уже есть в рюкзаке")
+        return
     for material in costs:
         if int(resources.get(material, 0)) < int(costs[material]) * quantity:
             show_message("Не хватает ресурсов")
@@ -469,6 +472,10 @@ func load_progress() -> void:
     var saved_resources: Dictionary = data.get("resources", {})
     for key in resources:
         resources[key] = maxi(0, int(saved_resources.get(key, 0)))
+    owned_tools = {"axe": true, "pickaxe": true}
+    var saved_tools: Dictionary = data.get("tools", {})
+    for kind in ["axe", "pickaxe"]:
+        owned_tools[kind] = bool(saved_tools.get(kind, true))
     equipped_tool = str(data.get("equipped_tool", "axe"))
     if equipped_tool not in ["axe", "pickaxe"]:
         equipped_tool = "axe"
@@ -478,10 +485,6 @@ func load_progress() -> void:
     dead = false
     survival_ui.set_dead(false)
     survival_ui.update_stats(health, hunger, thirst)
-    for child in building.get_children():
-        if child is StaticBody3D and child.name.begins_with("Built_"):
-            child.queue_free()
-    building.placed.clear()
     var structures: Array = data.get("structures", [])
     building.restore_structures(structures)
     setup_tool()
