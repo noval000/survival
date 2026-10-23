@@ -3,10 +3,10 @@ extends Node3D
 # Grid-snapped construction with material costs and persistent physics.
 const GRID := 3.0
 const COSTS := {
-    "foundation": {"wood": 20, "stone": 10},
-    "wall": {"plank": 4},
-    "doorway": {"plank": 3},
-    "roof": {"plank": 6}
+    "foundation": {"wood": 20},
+    "wall": {"wood": 12},
+    "doorway": {"wood": 10},
+    "roof": {"wood": 16}
 }
 const SIZES := {
     "foundation": Vector3(3.0, 0.25, 3.0),
