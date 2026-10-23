@@ -44,7 +44,10 @@ func update_item(kind: String, count: int, title: String = "") -> void:
     if icon == null:
         return
     var icon_path := ICON_DIR + kind + ".svg"
-    icon.texture = load(icon_path) as Texture2D if kind != "" and ResourceLoader.exists(icon_path) else null
+    if kind != "" and ResourceLoader.exists(icon_path):
+        icon.texture = load(icon_path) as Texture2D
+    else:
+        icon.texture = null
     title_label.text = title
     amount_label.text = ("×%d" % count) if count > 0 else ""
     modulate = Color.WHITE if count > 0 else Color(0.55, 0.61, 0.62)
