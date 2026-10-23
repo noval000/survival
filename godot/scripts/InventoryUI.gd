@@ -4,6 +4,7 @@ const UI = preload("res://scripts/UIDesign.gd")
 
 signal craft_requested(recipe: String, quantity: int)
 signal consumable_requested(kind: String)
+signal tool_selected(kind: String)
 
 const ITEMS := {
     "wood": ["Древесина", "🌲"],
@@ -25,6 +26,7 @@ var tools: Dictionary = {}
 var current_tool := "axe"
 var panel: PanelContainer
 var hotbar_text: Label
+var hotbar_buttons: Dictionary = {}
 var item_labels: Dictionary = {}
 var item_slots: Dictionary = {}
 var recipe_buttons: Dictionary = {}
@@ -53,10 +55,20 @@ func _ready() -> void:
     add_child(root)
     root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var hotbar := HBoxContainer.new()
+    hotbar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+    hotbar.position = Vector2(-150, -88)
+    hotbar.add_theme_constant_override("separation", 10)
+    root.add_child(hotbar)
+    for kind in ["axe", "pickaxe"]:
+        var button := Button.new()
+        button.custom_minimum_size = Vector2(140, 62)
+        button.pressed.connect(func() -> void: tool_selected.emit(kind))
+        UI.decorate_button(button)
+        hotbar.add_child(button)
+        hotbar_buttons[kind] = button
     hotbar_text = Label.new()
-    hotbar_text.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-    hotbar_text.position = Vector2(-235, -55)
-    hotbar_text.add_theme_font_size_override("font_size", 19)
+    hotbar_text.visible = false
     root.add_child(hotbar_text)
     panel = PanelContainer.new()
     panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -221,7 +233,10 @@ func set_inventory(values: Dictionary, owned_tools: Dictionary, selected: String
 func refresh() -> void:
     if hotbar_text == null:
         return
-    hotbar_text.text = "[1] ТОПОР%s      [2] КИРКА%s      [I] РЮКЗАК" % [" ◀" if current_tool == "axe" else "", " ◀" if current_tool == "pickaxe" else ""]
+    for kind in hotbar_buttons:
+        var button: Button = hotbar_buttons[kind]
+        button.text = ("1  ТОПОР" if kind == "axe" else "2  КИРКА") + ("  ●" if current_tool == kind else "")
+        UI.decorate_button(button, current_tool == kind)
     for kind in item_labels:
         var count: int = int(inventory.get(kind, 0))
         var amount: Label = item_labels[kind]
