@@ -27,3 +27,6 @@ jobs:
           /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_inventory_stacks.gd
           /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_container_transfer.gd
           /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_loot_crate.gd
+
+      - name: Furnace regression tests
+        run: /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/test_furnace_process.gd
