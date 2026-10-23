@@ -564,10 +564,27 @@ func place_chest() -> void:
     if int(resources.get("wood", 0)) < CHEST_COST:
         show_message("Для сундука требуется 50 древесины")
         return
+    var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 5.0)
+    query.exclude = [get_rid()]
+    var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty():
+        show_message("Наведитесь на поверхность для установки сундука")
+        return
+    var normal: Vector3 = hit["normal"]
+    if normal.y < 0.75:
+        show_message("Сундук можно установить только на ровную поверхность")
+        return
+    var position: Vector3 = hit["position"] + Vector3.UP * 0.45
+    if position.distance_to(global_position) > 5.0:
+        return
+    for existing in chests:
+        if is_instance_valid(existing) and existing.global_position.distance_to(position) < 1.5:
+            show_message("Рядом уже установлен сундук")
+            return
     var chest = CHEST_SCRIPT.new()
     chest.chest_id = str(Time.get_ticks_usec())
     get_parent().add_child(chest)
-    chest.global_position = global_position - global_transform.basis.z * 2.5 - Vector3(0, 0.45, 0)
+    chest.global_position = position
     chest.rotation.y = rotation.y
     chests.append(chest)
     resources["wood"] = int(resources["wood"]) - CHEST_COST
