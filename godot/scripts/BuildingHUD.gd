@@ -1,4 +1,5 @@
 extends CanvasLayer
+const UI = preload("res://scripts/UIDesign.gd")
 
 const PIECES := [
     ["foundation", "ФУНДАМЕНТ", "▦", "20 древесины"],
@@ -27,7 +28,7 @@ func _ready() -> void:
     style.bg_color = Color(0.08, 0.10, 0.11, 0.92)
     style.set_corner_radius_all(10)
     style.set_content_margin_all(12)
-    bar.add_theme_stylebox_override("panel", style)
+    bar.add_theme_stylebox_override("panel", UI.panel_style())
     var column := VBoxContainer.new()
     bar.add_child(column)
     var title := Label.new()
@@ -42,6 +43,7 @@ func _ready() -> void:
         button.custom_minimum_size = Vector2(182, 60)
         button.text = "%d   %s  %s" % [i + 1, data[2], data[1]]
         button.pressed.connect(_choose.bind(str(data[0])))
+        UI.decorate_button(button)
         choices.add_child(button)
         buttons[data[0]] = button
     detail = Label.new()
@@ -60,7 +62,7 @@ func update_building(enabled: bool, selected: String, can_place: bool, resources
     for data in PIECES:
         var button: Button = buttons[data[0]]
         button.button_pressed = selected == data[0]
-        button.modulate = Color(0.48, 0.92, 0.62) if selected == data[0] else Color.WHITE
+        UI.decorate_button(button, selected == data[0])
     var selected_data: Array = PIECES[0]
     for data in PIECES:
         if data[0] == selected:
