@@ -1,0 +1,27 @@
+extends SceneTree
+
+const STACKS = preload("res://scripts/InventoryStacks.gd")
+const TRANSFER = preload("res://scripts/ContainerTransfer.gd")
+
+func _initialize() -> void:
+    var bag = STACKS.new()
+    var chest = STACKS.new()
+    assert(bag.add("wood", 150) == 0)
+    assert(TRANSFER.transfer(bag, chest, 0, 35))
+    assert(bag.count("wood") == 115)
+    assert(chest.count("wood") == 35)
+    assert(TRANSFER.transfer(chest, bag, 0, 20))
+    assert(bag.count("wood") == 135)
+    assert(chest.count("wood") == 15)
+    assert(not TRANSFER.transfer(bag, chest, -1, 1))
+    assert(not TRANSFER.transfer(bag, chest, 0, 0))
+    var total_before: int = bag.count("wood") + chest.count("wood")
+    assert(chest.add("stone", 2300) == 0)
+    assert(not TRANSFER.transfer(bag, chest, 0, 135))
+    assert(bag.count("wood") + chest.count("wood") == total_before)
+    var saved: Array = chest.serialize()
+    var reloaded = STACKS.new()
+    assert(reloaded.restore(saved))
+    assert(reloaded.count("wood") == chest.count("wood"))
+    print("ContainerTransfer: OK")
+    quit()
