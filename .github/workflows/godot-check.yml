@@ -1,0 +1,24 @@
+name: Проверка проекта Godot
+
+on:
+  push:
+    branches: [feature/godot-mvp]
+  pull_request:
+    paths:
+      - "godot/**"
+      - ".github/workflows/godot-check.yml"
+
+jobs:
+  parse-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Скачать Godot 4.3
+        run: |
+          curl -fL --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.3-stable_linux.x86_64
+      - name: Импорт и проверка GDScript
+        run: |
+          /tmp/Godot_v4.3-stable_linux.x86_64 --headless --editor --path godot --import --quit
+          /tmp/Godot_v4.3-stable_linux.x86_64 --headless --path godot --quit-after 15
