@@ -273,10 +273,19 @@ func refresh() -> void:
         var row := PanelContainer.new()
         row.add_theme_stylebox_override("panel", UI.panel_style())
         ingredient_list.add_child(row)
+        var contents := HBoxContainer.new()
+        contents.add_theme_constant_override("separation", 8)
+        row.add_child(contents)
+        var ingredient_icon := TextureRect.new()
+        ingredient_icon.texture = load(ICON_DIR + str(material) + ".svg") as Texture2D
+        ingredient_icon.custom_minimum_size = Vector2(42, 42)
+        ingredient_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        ingredient_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        contents.add_child(ingredient_icon)
         var label := Label.new()
-        label.text = "%s  %s\nНужно: %d     Есть: %d" % [ITEMS[material][1], ITEMS[material][0], required, available]
+        label.text = "%s\nНужно: %d     Есть: %d" % [ITEMS[material][0], required, available]
         label.add_theme_color_override("font_color", Color(0.52, 0.95, 0.62) if good else Color(1.0, 0.48, 0.43))
-        row.add_child(label)
+        contents.add_child(label)
     craft_button.text = ("СОЗДАТЬ ×%d" % int(quantity_input.value)) if enough else "НЕДОСТАТОЧНО РЕСУРСОВ"
     max_button.disabled = max_craft_count() <= 0
     craft_button.disabled = not enough
