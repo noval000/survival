@@ -3,7 +3,7 @@ extends RefCounted
 const SAVE_PATH := "user://survival_save.json"
 const VERSION := 1
 
-static func save_game(player: CharacterBody3D, building: Node3D) -> bool:
+static func save_game(player, building) -> bool:
     var structures: Array = []
     for item in building.placed:
         var p: Vector3 = item["position"]
