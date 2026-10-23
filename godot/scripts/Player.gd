@@ -371,14 +371,13 @@ func sync_inventory() -> void:
     if inventory_ui != null:
         inventory_ui.set_inventory(resources, owned_tools, equipped_tool)
 
-func craft_item(recipe: String) -> void:
+func craft_item(recipe: String, quantity: int = 1) -> void:
+    quantity = clampi(quantity, 1, 9999)
     var costs: Dictionary = {}
-    if recipe == "plank":
-        costs = {"wood": 5}
-    elif recipe == "iron_bar":
+    if recipe == "iron_bar":
         costs = {"iron": 3, "coal": 2}
     elif recipe == "bandage":
-        costs = {"berries": 3, "plank": 2}
+        costs = {"berries": 3, "wood": 2}
     elif recipe == "axe":
         costs = {"wood": 10, "stone": 5}
     elif recipe == "pickaxe":
@@ -386,23 +385,19 @@ func craft_item(recipe: String) -> void:
     else:
         return
     for material in costs:
-        if int(resources.get(material, 0)) < int(costs[material]):
+        if int(resources.get(material, 0)) < int(costs[material]) * quantity:
+            show_message("Не хватает ресурсов")
             return
     for material in costs:
-        resources[material] = int(resources.get(material, 0)) - int(costs[material])
-    if recipe == "plank":
-        resources["plank"] = int(resources.get("plank", 0)) + 2
-    elif recipe == "iron_bar":
-        resources["iron_bar"] = int(resources.get("iron_bar", 0)) + 1
-    elif recipe == "bandage":
-        resources["bandage"] = int(resources.get("bandage", 0)) + 1
+        resources[material] = int(resources.get(material, 0)) - int(costs[material]) * quantity
+    if recipe in ["iron_bar", "bandage"]:
+        resources[recipe] = int(resources.get(recipe, 0)) + quantity
     else:
         owned_tools[recipe] = true
         equipped_tool = recipe
         setup_tool()
     sync_inventory()
-    feedback_remaining = 1.5
-    harvest_feedback.text = "Создано: %s" % recipe
+    show_message("Создано: %s ×%d" % [recipe, quantity])
 
 func take_damage(amount: float) -> void:
     if dead:
