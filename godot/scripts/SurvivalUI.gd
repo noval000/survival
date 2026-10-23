@@ -12,7 +12,7 @@ func _ready() -> void:
     column.position = Vector2(20, 185)
     column.custom_minimum_size = Vector2(225, 100)
     add_child(column)
-    for stat in ["HEALTH", "HUNGER", "THIRST"]:
+    for stat in ["ЗДОРОВЬЕ", "СЫТОСТЬ", "ЖАЖДА"]:
         var label := Label.new()
         label.text = stat
         column.add_child(label)
@@ -22,9 +22,9 @@ func _ready() -> void:
         bar.custom_minimum_size = Vector2(210, 16)
         bar.show_percentage = false
         column.add_child(bar)
-        if stat == "HEALTH":
+        if stat == "ЗДОРОВЬЕ":
             health_bar = bar
-        elif stat == "HUNGER":
+        elif stat == "СЫТОСТЬ":
             hunger_bar = bar
         else:
             thirst_bar = bar
@@ -36,12 +36,12 @@ func _ready() -> void:
     var contents := VBoxContainer.new()
     death_panel.add_child(contents)
     var title := Label.new()
-    title.text = "YOU DIED"
+    title.text = "ВЫ ПОГИБЛИ"
     title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     title.add_theme_font_size_override("font_size", 32)
     contents.add_child(title)
     var button := Button.new()
-    button.text = "RESPAWN"
+    button.text = "ВОЗРОДИТЬСЯ"
     button.pressed.connect(func() -> void: respawn_requested.emit())
     contents.add_child(button)
     death_panel.visible = false
