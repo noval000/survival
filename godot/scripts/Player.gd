@@ -80,6 +80,7 @@ func _ready() -> void:
     add_child(inventory_ui)
     inventory_ui.craft_requested.connect(craft_item)
     inventory_ui.consumable_requested.connect(use_consumable)
+    inventory_ui.tool_selected.connect(equip_tool)
     sync_inventory()
     building = BUILDING_SCRIPT.new()
     building.name = "BuildingSystem"
