@@ -18,6 +18,7 @@ static func save_game(player, building) -> bool:
         "bag_layout": player.inventory_ui.get_bag_layout(),
         "chests": player.get_chests_data(),
         "loot_crates": player.get_loot_data(),
+        "furnaces": player.get_furnaces_data(),
         "health": player.health,
         "hunger": player.hunger,
         "thirst": player.thirst,
