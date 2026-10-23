@@ -9,6 +9,7 @@ const QUICK_ACTIONS_SCRIPT = preload("res://scripts/QuickActionsHUD.gd")
 const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/MobileControls.gd")
 const CHEST_SCRIPT = preload("res://scripts/StorageChest.gd")
 const CHEST_UI_SCRIPT = preload("res://scripts/ChestUI.gd")
+const LOOT_CRATE_SCRIPT = preload("res://scripts/LootCrate.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -39,6 +40,7 @@ var quick_actions
 var mobile_controls
 var chest_ui
 var chests: Array = []
+var loot_crates: Array = []
 const CHEST_COST := 50
 var mobile_jump := false
 var mobile_sprint := false
@@ -116,6 +118,7 @@ func _ready() -> void:
     chest_ui.transfer_requested.connect(transfer_chest_items)
     chest_ui.closed.connect(_on_chest_closed)
     load_progress.call_deferred()
+    initialize_loot.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
@@ -520,6 +523,7 @@ func load_progress() -> void:
     sync_inventory()
     inventory_ui.restore_bag_layout(data.get("bag_layout", []))
     restore_chests(data.get("chests", []))
+    restore_loot(data.get("loot_crates", []))
 
 func try_interact() -> void:
     var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 4.0)
@@ -651,6 +655,53 @@ func restore_chests(saved: Array) -> void:
             chests.append(chest)
         else:
             chest.queue_free()
+
+func initialize_loot() -> void:
+    if not loot_crates.is_empty():
+        return
+    var world: Node = get_parent().get_node_or_null("IslandWorld")
+    if world == null:
+        return
+    for coords in [Vector2(13.0, 9.0), Vector2(-16.0, 12.0), Vector2(8.0, -18.0)]:
+        var height: float = float(world.call("height_at", coords.x, coords.y))
+        var crate = LOOT_CRATE_SCRIPT.new()
+        crate.chest_id = "loot_%d_%d" % [int(coords.x), int(coords.y)]
+        crate.loot_seed = absi(int(coords.x * 193.0 + coords.y * 791.0)) + 1
+        get_parent().add_child(crate)
+        crate.global_position = Vector3(coords.x, height + 0.5, coords.y)
+        loot_crates.append(crate)
+
+func get_loot_data() -> Array:
+    var records: Array = []
+    for crate in loot_crates:
+        if is_instance_valid(crate):
+            records.append(crate.serialize())
+    return records
+
+func restore_loot(saved: Array) -> void:
+    if saved.is_empty():
+        return
+    for crate in loot_crates:
+        if is_instance_valid(crate):
+            crate.get_parent().remove_child(crate)
+            crate.queue_free()
+    loot_crates.clear()
+    for record in saved:
+        if typeof(record) != TYPE_DICTIONARY:
+            continue
+        var coords: Array = record.get("position", [])
+        if coords.size() != 3:
+            continue
+        var crate = LOOT_CRATE_SCRIPT.new()
+        crate.chest_id = str(record.get("id", ""))
+        crate.loot_seed = int(record.get("loot_seed", 1))
+        crate.spawn_initialized = true
+        get_parent().add_child(crate)
+        crate.global_position = Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
+        if crate.restore(record):
+            loot_crates.append(crate)
+        else:
+            crate.queue_free()
 
 func use_consumable(kind: String) -> void:
     if dead or int(resources.get(kind, 0)) <= 0:
