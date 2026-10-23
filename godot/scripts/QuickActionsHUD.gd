@@ -1,4 +1,5 @@
 extends CanvasLayer
+const UI = preload("res://scripts/UIDesign.gd")
 
 signal inventory_pressed
 signal build_pressed
@@ -39,6 +40,7 @@ func add_action(caption: String, callback: Callable) -> void:
     button.text = caption
     button.custom_minimum_size = Vector2(78, 43)
     button.pressed.connect(callback)
+    UI.decorate_button(button)
     controls.add_child(button)
 
 func set_cursor_visible(enabled: bool) -> void:
