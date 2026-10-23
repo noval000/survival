@@ -486,6 +486,7 @@ func load_progress() -> void:
     inventory_ui.restore_hotbar_assignments(data.get("hotbar", []))
     setup_tool()
     sync_inventory()
+    inventory_ui.restore_bag_layout(data.get("bag_layout", []))
 
 func try_interact() -> void:
     var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 4.0)
