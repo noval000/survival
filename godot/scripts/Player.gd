@@ -214,16 +214,19 @@ func _physics_process(delta: float) -> void:
         building_hud.update_building(building.active, building.piece_type, building.ghost_valid, resources)
     if not is_on_floor():
         velocity.y -= gravity * delta
-    elif Input.is_action_just_pressed("jump") or Input.is_physical_key_pressed(KEY_SPACE):
+    elif Input.is_action_just_pressed("jump") or Input.is_physical_key_pressed(KEY_SPACE) or mobile_jump:
         velocity.y = jump_velocity
 
+    mobile_jump = false
     var x_axis: float = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
     var z_axis: float = float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W))
     var axis := Vector2(x_axis, z_axis).normalized()
     if axis == Vector2.ZERO:
         axis = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+    if mobile_controls != null and mobile_controls.visible and mobile_controls.move_vector.length() > 0.05:
+        axis = mobile_controls.move_vector
     var wish := (global_transform.basis * Vector3(axis.x, 0.0, axis.y)).normalized()
-    var running: bool = Input.is_action_pressed("sprint") or Input.is_physical_key_pressed(KEY_SHIFT)
+    var running: bool = mobile_sprint or Input.is_action_pressed("sprint") or Input.is_physical_key_pressed(KEY_SHIFT)
     var speed := sprint_speed if running else walk_speed
     var accel := 15.0 if is_on_floor() else 4.0
     velocity.x = move_toward(velocity.x, wish.x * speed, accel * delta)
