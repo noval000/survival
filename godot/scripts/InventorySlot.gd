@@ -17,7 +17,8 @@ const UI = preload("res://scripts/UIDesign.gd")
 const ICON_DIR := "res://assets/icons/"
 
 func _ready() -> void:
-    custom_minimum_size = Vector2(90, 94)
+    if custom_minimum_size == Vector2.ZERO:
+        custom_minimum_size = Vector2(90, 94)
     mouse_filter = Control.MOUSE_FILTER_STOP
     add_theme_stylebox_override("panel", UI.panel_style())
     var stack := VBoxContainer.new()
