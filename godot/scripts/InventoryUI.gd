@@ -197,6 +197,25 @@ func _ready() -> void:
     panel.visible = false
     refresh()
 
+func free_space(kind: String) -> int:
+    reconcile_stacks()
+    return stack_model.free_space(kind)
+
+func can_fit_item(kind: String, quantity: int) -> bool:
+    return quantity >= 0 and free_space(kind) >= quantity
+
+func can_fit_after_consuming(kind: String, quantity: int, costs: Dictionary) -> bool:
+    if quantity < 0:
+        return false
+    reconcile_stacks()
+    var simulated = STACKS.new()
+    if not simulated.restore(stack_model.serialize()):
+        return false
+    for material in costs:
+        if not simulated.remove(str(material), int(costs[material])):
+            return false
+    return simulated.can_fit(kind, quantity)
+
 func reconcile_stacks() -> void:
     for kind in ITEMS:
         var desired: int = maxi(0, int(inventory.get(kind, 0)))
@@ -348,6 +367,11 @@ func refresh() -> void:
     recipe_name.text = info[0]
     var costs: Dictionary = info[1]
     var enough := max_craft_count() >= int(quantity_input.value)
+    if selected_recipe in ["iron_bar", "bandage"]:
+        var total_costs: Dictionary = {}
+        for material in costs:
+            total_costs[material] = int(costs[material]) * int(quantity_input.value)
+        enough = enough and can_fit_after_consuming(selected_recipe, int(quantity_input.value), total_costs)
     for material in costs:
         var required: int = int(costs[material]) * int(quantity_input.value)
         var available: int = int(inventory.get(material, 0))
