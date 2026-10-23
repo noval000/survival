@@ -86,7 +86,7 @@ func move(source: int, destination: int, amount: int = -1) -> bool:
 func split(source: int, destination: int) -> bool:
     if source < 0 or source >= CAPACITY or int(slots[source].get("count", 0)) < 2:
         return false
-    return move(source, destination, int(slots[source]["count"]) / 2)
+    return move(source, destination, int(floor(float(slots[source]["count"]) / 2.0)))
 
 func serialize() -> Array:
     return slots.duplicate(true)
