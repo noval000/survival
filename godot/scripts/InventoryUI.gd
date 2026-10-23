@@ -209,11 +209,13 @@ func select_recipe(kind: String) -> void:
     refresh()
 
 func max_craft_count() -> int:
+    if selected_recipe in ["axe", "pickaxe"] and bool(tools.get(selected_recipe, false)):
+        return 0
     var costs: Dictionary = RECIPES[selected_recipe][1]
     var maximum := 9999
     for material in costs:
         maximum = mini(maximum, int(floor(float(inventory.get(material, 0)) / float(costs[material]))))
-    return maxi(0, maximum)
+    return mini(1, maxi(0, maximum)) if selected_recipe in ["axe", "pickaxe"] else maxi(0, maximum)
 
 func set_max_quantity() -> void:
     quantity_input.value = maxi(1, max_craft_count())
@@ -256,7 +258,7 @@ func refresh() -> void:
     var info: Array = RECIPES[selected_recipe]
     recipe_name.text = info[0]
     var costs: Dictionary = info[1]
-    var enough := true
+    var enough := max_craft_count() >= int(quantity_input.value)
     for material in costs:
         var required: int = int(costs[material]) * int(quantity_input.value)
         var available: int = int(inventory.get(material, 0))
@@ -272,7 +274,7 @@ func refresh() -> void:
     craft_button.text = ("СОЗДАТЬ ×%d" % int(quantity_input.value)) if enough else "НЕДОСТАТОЧНО РЕСУРСОВ"
     max_button.disabled = max_craft_count() <= 0
     craft_button.disabled = not enough
-    recipe_status.text = "Все материалы собраны" if enough else "Красным отмечены недостающие материалы"
+    recipe_status.text = ("Инструмент уже изготовлен" if selected_recipe in ["axe", "pickaxe"] and bool(tools.get(selected_recipe, false)) else ("Все материалы собраны" if enough else "Красным отмечены недостающие материалы"))
     use_buttons["berries"].text = "Съесть ягоды  (+25 сытости)"
     use_buttons["berries"].disabled = int(inventory.get("berries", 0)) <= 0
     use_buttons["bandage"].text = "Использовать бинт  (+35 здоровья)"
