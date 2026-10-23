@@ -10,6 +10,8 @@ const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/MobileControls.gd")
 const CHEST_SCRIPT = preload("res://scripts/StorageChest.gd")
 const CHEST_UI_SCRIPT = preload("res://scripts/ChestUI.gd")
 const LOOT_CRATE_SCRIPT = preload("res://scripts/LootCrate.gd")
+const FURNACE_SCRIPT = preload("res://scripts/SmeltingFurnace.gd")
+const FURNACE_UI_SCRIPT = preload("res://scripts/FurnaceUI.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -41,6 +43,9 @@ var mobile_controls
 var chest_ui
 var chests: Array = []
 var loot_crates: Array = []
+var furnaces: Array = []
+var furnace_ui
+const FURNACE_COST := {"stone": 40, "wood": 20}
 const CHEST_COST := 50
 var mobile_jump := false
 var mobile_sprint := false
@@ -117,11 +122,21 @@ func _ready() -> void:
     add_child(chest_ui)
     chest_ui.transfer_requested.connect(transfer_chest_items)
     chest_ui.closed.connect(_on_chest_closed)
+    furnace_ui = FURNACE_UI_SCRIPT.new()
+    add_child(furnace_ui)
+    furnace_ui.closed.connect(_on_chest_closed)
+    furnace_ui.deposit_requested.connect(furnace_deposit)
+    furnace_ui.withdraw_requested.connect(furnace_withdraw)
+    furnace_ui.toggle_requested.connect(furnace_toggle)
     load_progress.call_deferred()
     initialize_loot.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
+        if furnace_ui != null and furnace_ui.is_open():
+            if event.physical_keycode in [KEY_ESCAPE, KEY_E]:
+                furnace_ui.close_furnace()
+            return
         if chest_ui != null and chest_ui.is_open():
             if event.physical_keycode in [KEY_ESCAPE, KEY_E]:
                 chest_ui.close_storage()
@@ -155,6 +170,9 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if not inventory_ui.is_open():
+            if event.physical_keycode == KEY_V:
+                place_furnace()
+                return
             if event.physical_keycode == KEY_C:
                 place_chest()
                 return
@@ -204,7 +222,7 @@ func _physics_process(delta: float) -> void:
     if dead:
         velocity = Vector3.ZERO
         return
-    if chest_ui != null and chest_ui.is_open():
+    if (chest_ui != null and chest_ui.is_open()) or (furnace_ui != null and furnace_ui.is_open()):
         velocity = Vector3.ZERO
         return
     harvest_cooldown = maxf(0.0, harvest_cooldown - delta)
@@ -524,6 +542,7 @@ func load_progress() -> void:
     inventory_ui.restore_bag_layout(data.get("bag_layout", []))
     restore_chests(data.get("chests", []))
     restore_loot(data.get("loot_crates", []))
+    restore_furnaces(data.get("furnaces", []))
 
 func try_interact() -> void:
     var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 4.0)
@@ -534,6 +553,9 @@ func try_interact() -> void:
         return
     var target: Node = hit.get("collider") as Node
     if target == null:
+        return
+    if target.is_in_group("survival_furnaces"):
+        open_furnace(target)
         return
     if target.is_in_group("survival_chests"):
         open_chest(target)
@@ -702,6 +724,99 @@ func restore_loot(saved: Array) -> void:
             loot_crates.append(crate)
         else:
             crate.queue_free()
+
+func place_furnace() -> void:
+    if dead or inventory_ui.is_open() or chest_ui.is_open() or furnace_ui.is_open():
+        return
+    for kind in FURNACE_COST:
+        if int(resources.get(kind, 0)) < int(FURNACE_COST[kind]):
+            show_message("Печь: требуется 40 камня и 20 древесины")
+            return
+    var ray := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_transform.basis.z * 5.0)
+    ray.exclude = [get_rid()]
+    var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+    if hit.is_empty() or (hit["normal"] as Vector3).y < 0.75:
+        show_message("Наведитесь на ровную поверхность")
+        return
+    var location: Vector3 = hit["position"] + Vector3.UP * 0.6
+    for placed in furnaces:
+        if is_instance_valid(placed) and placed.global_position.distance_to(location) < 1.5:
+            show_message("Рядом уже есть печь")
+            return
+    var furnace = FURNACE_SCRIPT.new()
+    furnace.furnace_id = str(Time.get_ticks_usec())
+    get_parent().add_child(furnace)
+    furnace.global_position = location
+    furnaces.append(furnace)
+    for kind in FURNACE_COST:
+        resources[kind] = int(resources[kind]) - int(FURNACE_COST[kind])
+    sync_inventory()
+    show_message("Печь установлена — нажмите E")
+
+func open_furnace(target: Node) -> void:
+    if dead or inventory_ui.is_open() or chest_ui.is_open() or target.global_position.distance_to(global_position) > 4.5:
+        return
+    furnace_ui.open_furnace(target)
+    Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func furnace_deposit(kind: String, requested: int) -> void:
+    var furnace = furnace_ui.furnace
+    if not is_instance_valid(furnace) or furnace.global_position.distance_to(global_position) > 4.5:
+        return
+    var count: int = mini(requested, int(resources.get(kind, 0)))
+    if count <= 0 or not furnace.process.storage.can_fit(kind, count):
+        show_message("Нет ресурсов или места в печи")
+        return
+    furnace.process.storage.add(kind, count)
+    resources[kind] = int(resources[kind]) - count
+    sync_inventory()
+
+func furnace_withdraw() -> void:
+    var furnace = furnace_ui.furnace
+    if not is_instance_valid(furnace) or furnace.global_position.distance_to(global_position) > 4.5:
+        return
+    var amount: int = furnace.process.storage.count("iron_bar")
+    if amount <= 0:
+        return
+    if not inventory_ui.can_fit_item("iron_bar", amount):
+        show_message("В рюкзаке нет места для слитков")
+        return
+    if furnace.process.storage.remove("iron_bar", amount):
+        resources["iron_bar"] = int(resources["iron_bar"]) + amount
+        sync_inventory()
+
+func furnace_toggle() -> void:
+    var furnace = furnace_ui.furnace
+    if is_instance_valid(furnace) and furnace.global_position.distance_to(global_position) <= 4.5:
+        furnace.toggle()
+
+func get_furnaces_data() -> Array:
+    var records: Array = []
+    for furnace in furnaces:
+        if is_instance_valid(furnace):
+            records.append(furnace.serialize())
+    return records
+
+func restore_furnaces(saved: Array) -> void:
+    for furnace in furnaces:
+        if is_instance_valid(furnace):
+            furnace.queue_free()
+    furnaces.clear()
+    for record in saved:
+        if typeof(record) != TYPE_DICTIONARY:
+            continue
+        var coords: Array = record.get("position", [])
+        if coords.size() != 3:
+            continue
+        var furnace = FURNACE_SCRIPT.new()
+        furnace.furnace_id = str(record.get("id", ""))
+        get_parent().add_child(furnace)
+        furnace.global_position = Vector3(float(coords[0]), float(coords[1]), float(coords[2]))
+        furnace.rotation.y = float(record.get("rotation_y", 0.0))
+        if furnace.restore(record):
+            furnaces.append(furnace)
+        else:
+            furnace.queue_free()
 
 func use_consumable(kind: String) -> void:
     if dead or int(resources.get(kind, 0)) <= 0:
