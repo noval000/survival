@@ -6,6 +6,7 @@ const SURVIVAL_UI_SCRIPT = preload("res://scripts/SurvivalUI.gd")
 const SAVE_GAME = preload("res://scripts/SaveGame.gd")
 const BUILDING_HUD_SCRIPT = preload("res://scripts/BuildingHUD.gd")
 const QUICK_ACTIONS_SCRIPT = preload("res://scripts/QuickActionsHUD.gd")
+const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/MobileControls.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -33,6 +34,9 @@ var building
 var survival_ui
 var building_hud
 var quick_actions
+var mobile_controls
+var mobile_jump := false
+var mobile_sprint := false
 var health: float = 100.0
 var hunger: float = 100.0
 var thirst: float = 100.0
