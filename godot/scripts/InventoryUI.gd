@@ -1,12 +1,13 @@
 extends CanvasLayer
 
+const UI = preload("res://scripts/UIDesign.gd")
+
 signal craft_requested(recipe: String, quantity: int)
 signal consumable_requested(kind: String)
 
 const ITEMS := {
     "wood": ["Древесина", "🌲"],
     "stone": ["Камень", "🪨"],
-    "plank": ["Доски", "🪵"],
     "iron": ["Железная руда", "⛏"],
     "coal": ["Уголь", "⬛"],
     "iron_bar": ["Железный слиток", "🔩"],
@@ -61,7 +62,7 @@ func _ready() -> void:
     panel.set_anchors_preset(Control.PRESET_CENTER)
     panel.position = Vector2(-490, -320)
     panel.custom_minimum_size = Vector2(980, 640)
-    panel.add_theme_stylebox_override("panel", make_style(Color(0.065, 0.082, 0.085, 0.98), Color(0.3, 0.42, 0.38)))
+    panel.add_theme_stylebox_override("panel", UI.panel_style())
     root.add_child(panel)
     var layout := VBoxContainer.new()
     layout.add_theme_constant_override("separation", 12)
@@ -89,7 +90,7 @@ func _ready() -> void:
     for kind in ITEMS:
         var tile := PanelContainer.new()
         tile.custom_minimum_size = Vector2(112, 112)
-        tile.add_theme_stylebox_override("panel", make_style(Color(0.13, 0.17, 0.17), Color(0.22, 0.31, 0.29)))
+        tile.add_theme_stylebox_override("panel", UI.panel_style())
         slots.add_child(tile)
         var stack := VBoxContainer.new()
         tile.add_child(stack)
@@ -123,6 +124,7 @@ func _ready() -> void:
         var button := Button.new()
         button.custom_minimum_size = Vector2(195, 62)
         button.pressed.connect(select_recipe.bind(kind))
+        UI.decorate_button(button)
         recipe_list.add_child(button)
         recipe_buttons[kind] = button
     var details := VBoxContainer.new()
@@ -154,10 +156,12 @@ func _ready() -> void:
     max_button = Button.new()
     max_button.text = "МАКС"
     max_button.pressed.connect(set_max_quantity)
+    UI.decorate_button(max_button)
     details.add_child(max_button)
     craft_button = Button.new()
     craft_button.custom_minimum_size.y = 56
     craft_button.pressed.connect(func() -> void: craft_requested.emit(selected_recipe, int(quantity_input.value)))
+    UI.decorate_button(craft_button, true)
     details.add_child(craft_button)
     recipe_status = Label.new()
     details.add_child(recipe_status)
@@ -168,11 +172,16 @@ func _ready() -> void:
         var button := Button.new()
         button.custom_minimum_size.y = 43
         button.pressed.connect(_consume.bind(kind))
+        UI.decorate_button(button)
         details.add_child(button)
         use_buttons[kind] = button
     var footer := Label.new()
     footer.text = "Выбери рецепт → проверь ресурсы → нажми «Создать»"
     layout.add_child(footer)
+    UI.decorate_title(title, 26)
+    UI.decorate_title(bag_title, 18)
+    UI.decorate_title(catalog_title, 18)
+    UI.decorate_title(detail_title, 18)
     panel.visible = false
     refresh()
 
@@ -188,7 +197,7 @@ func max_craft_count() -> int:
     var costs: Dictionary = RECIPES[selected_recipe][1]
     var maximum := 9999
     for material in costs:
-        maximum = mini(maximum, int(inventory.get(material, 0)) / int(costs[material]))
+        maximum = mini(maximum, int(floor(float(inventory.get(material, 0)) / float(costs[material]))))
     return maxi(0, maximum)
 
 func set_max_quantity() -> void:
@@ -223,7 +232,7 @@ func refresh() -> void:
         var info: Array = RECIPES[recipe]
         var button: Button = recipe_buttons[recipe]
         button.text = "%s  %s" % ["●" if recipe == selected_recipe else "○", info[0]]
-        button.modulate = Color(0.55, 0.93, 0.70) if recipe == selected_recipe else Color.WHITE
+        UI.decorate_button(button, recipe == selected_recipe)
     for child in ingredient_list.get_children():
         child.queue_free()
     var info: Array = RECIPES[selected_recipe]
@@ -236,7 +245,7 @@ func refresh() -> void:
         var good: bool = available >= required
         enough = enough and good
         var row := PanelContainer.new()
-        row.add_theme_stylebox_override("panel", make_style(Color(0.12, 0.17, 0.16)))
+        row.add_theme_stylebox_override("panel", UI.panel_style())
         ingredient_list.add_child(row)
         var label := Label.new()
         label.text = "%s  %s\nНужно: %d     Есть: %d" % [ITEMS[material][1], ITEMS[material][0], required, available]
