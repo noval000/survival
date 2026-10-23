@@ -28,11 +28,11 @@ var step_distance: float = 0.0
 var footstep: AudioStreamPlayer
 var resources: Dictionary = {"wood": 0, "stone": 0, "plank": 0, "iron": 0, "coal": 0, "iron_bar": 0, "berries": 0, "bandage": 0}
 var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
-var inventory_ui: CanvasLayer
-var building: Node3D
-var survival_ui: CanvasLayer
-var building_hud: CanvasLayer
-var quick_actions: CanvasLayer
+var inventory_ui
+var building
+var survival_ui
+var building_hud
+var quick_actions
 var health: float = 100.0
 var hunger: float = 100.0
 var thirst: float = 100.0
