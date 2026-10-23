@@ -4,6 +4,7 @@ const INVENTORY_UI_SCRIPT = preload("res://scripts/InventoryUI.gd")
 const BUILDING_SCRIPT = preload("res://scripts/BuildingSystem.gd")
 const SURVIVAL_UI_SCRIPT = preload("res://scripts/SurvivalUI.gd")
 const SAVE_GAME = preload("res://scripts/SaveGame.gd")
+const BUILDING_HUD_SCRIPT = preload("res://scripts/BuildingHUD.gd")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -29,6 +30,7 @@ var owned_tools: Dictionary = {"axe": true, "pickaxe": true}
 var inventory_ui: CanvasLayer
 var building: Node3D
 var survival_ui: CanvasLayer
+var building_hud: CanvasLayer
 var health: float = 100.0
 var hunger: float = 100.0
 var thirst: float = 100.0
@@ -81,6 +83,9 @@ func _ready() -> void:
     survival_ui.name = "SurvivalUI"
     add_child(survival_ui)
     survival_ui.respawn_requested.connect(respawn)
+    building_hud = BUILDING_HUD_SCRIPT.new()
+    add_child(building_hud)
+    building_hud.piece_requested.connect(func(kind: String) -> void: building.choose_piece(kind))
     load_progress.call_deferred()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -174,14 +179,16 @@ func _physics_process(delta: float) -> void:
             if building.place_piece(resources):
                 sync_inventory()
                 feedback_remaining = 1.3
-                harvest_feedback.text = "Built: %s" % building.piece_type
+                harvest_feedback.text = "Построено: %s" % building.piece_type
             else:
                 feedback_remaining = 0.8
-                harvest_feedback.text = "Cannot place / missing resources"
+                harvest_feedback.text = "Нельзя построить: место занято или мало ресурсов"
         else:
             try_harvest()
     if resource_label != null:
-        resource_label.text = "B Build | 1-4 Pieces | R Rotate | LMB Place" if building != null and building.active else "LMB Harvest | I Inventory | B Build"
+        resource_label.text = "B — строительство | 1–4 — выбор | R — поворот | ЛКМ — поставить" if building != null and building.active else "ЛКМ — добыча | E — собрать / пить | I — рюкзак | B — строительство"
+    if building_hud != null and building != null:
+        building_hud.update_building(building.active, building.piece_type, building.ghost_valid, resources)
     if not is_on_floor():
         velocity.y -= gravity * delta
     elif Input.is_action_just_pressed("jump") or Input.is_physical_key_pressed(KEY_SPACE):
@@ -206,7 +213,7 @@ func _physics_process(delta: float) -> void:
         take_damage((absf(fall_speed) - 12.0) * 4.0)
     animate_movement(delta, running)
     if status_label != null:
-        status_label.text = "WASD move | SPACE jump | SHIFT sprint | ESC mouse\\nInput: %s  Floor: %s  Pos: (%.1f, %.1f, %.1f)  Velocity: (%.1f, %.1f, %.1f)" % [str(axis), str(is_on_floor()), global_position.x, global_position.y, global_position.z, velocity.x, velocity.y, velocity.z]
+        status_label.text = "WASD — идти | ПРОБЕЛ — прыжок | SHIFT — бег | ESC — курсор\\nНаправление: %s  На земле: %s  Позиция: (%.1f, %.1f, %.1f)  Скорость: (%.1f, %.1f, %.1f)" % [str(axis), str(is_on_floor()), global_position.x, global_position.y, global_position.z, velocity.x, velocity.y, velocity.z]
 
 func setup_arms() -> void:
     arm_root = Node3D.new()
@@ -303,7 +310,7 @@ func try_harvest() -> void:
     var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
     if hit.is_empty():
         return
-    var target: Object = hit.get("collider")
+    var target: Node3D = hit.get("collider") as Node3D
     if target == null or not target.is_in_group("harvestable"):
         return
     var result: Dictionary = target.call("harvest", equipped_tool, 25)
@@ -395,7 +402,7 @@ func craft_item(recipe: String) -> void:
         setup_tool()
     sync_inventory()
     feedback_remaining = 1.5
-    harvest_feedback.text = "Crafted: %s" % recipe
+    harvest_feedback.text = "Создано: %s" % recipe
 
 func take_damage(amount: float) -> void:
     if dead:
@@ -425,7 +432,7 @@ func save_progress() -> void:
         return
     if SAVE_GAME.save_game(self, building):
         feedback_remaining = 1.5
-        harvest_feedback.text = "Game saved"
+        harvest_feedback.text = "Игра сохранена"
 
 func load_progress() -> void:
     if building == null or not building.is_inside_tree():
@@ -477,12 +484,12 @@ func try_interact() -> void:
         target.set_meta("quantity", 0)
         target.visible = false
         target.set_deferred("monitorable", false)
-        show_message("+%d berries" % quantity)
+        show_message("Собрано ягод: %d" % quantity)
         sync_inventory()
     elif kind == "water":
         thirst = minf(100.0, thirst + 45.0)
         survival_ui.update_stats(health, hunger, thirst)
-        show_message("Drank fresh water +45 thirst")
+        show_message("Вы попили: +45 жажды")
 
 func use_consumable(kind: String) -> void:
     if dead or int(resources.get(kind, 0)) <= 0:
@@ -496,7 +503,7 @@ func use_consumable(kind: String) -> void:
     resources[kind] = int(resources[kind]) - 1
     survival_ui.update_stats(health, hunger, thirst)
     sync_inventory()
-    show_message("Used: " + kind)
+    show_message("Использовано: " + ("ягоды" if kind == "berries" else "бинт"))
 
 func show_message(message: String) -> void:
     feedback_remaining = 1.6
